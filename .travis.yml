@@ -1,0 +1,61 @@
+stages:
+  - compile
+  - test
+  - name: deploy
+    if: branch = master
+
+jobs:
+  include:
+    - name: compile
+      stage: compile
+      language: go
+      go: 1.12.x
+      before_script:
+        - export GO111MODULE=on
+      script: go build .
+    - name: lint
+      stage: test
+      language: go
+      go: 1.12.x
+      before_script:
+        - export GO111MODULE=off
+        - go get golang.org/x/lint/golint
+        - export GO111MODULE=on
+      script: 
+        - golint --set_exit_status ./...
+        - if [[ $(gofmt -s -l .) ]]; then gofmt -s -l .; exit 1; fi 
+        - if [[ $(goimports -l .) ]]; then goimports -l .; exit 1; fi
+    - name: test
+      stage: test
+      language: go
+      go: 1.12.x
+      before_script:
+        - export GO111MODULE=on
+      script: 
+        - go test ./internal/... -race
+    - name: coverage
+      stage: test
+      language: go
+      go: 1.12.x
+      before_install: go get github.com/mattn/goveralls
+      before_script:
+        - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+        - chmod +x ./cc-test-reporter
+        - ./cc-test-reporter before-build
+        - export GO111MODULE=on
+      script: 
+        - mandatory_coverage="90"
+        - go test ./internal/... -coverprofile=c.out
+        - go tool cover -func=c.out > coverage.txt
+        - coverage_percent=$(grep -Eo "total:.*\(statements\).*[0-9.]+" coverage.txt | grep -Eo "[0-9]+\.[0-9]+" | bc) # I am not good at bash
+        - if [ $(bc -l <<< "$coverage_percent < $mandatory_coverage") -eq 1 ]; then echo "Coverage percentage was ${coverage_percent}, must be at least ${mandatory_coverage}!"; exit 1; fi
+      after_script:
+        - $GOPATH/bin/goveralls -coverprofile=c.out -service=travis-ci
+        - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
+    - name: deploy
+      stage: deploy
+      language: go
+      go: 1.12.x
+      before_script:
+        - export GO111MODULE=on
+      script: exit 0 # write deployment code
