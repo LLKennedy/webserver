@@ -8,9 +8,16 @@ import (
 )
 
 func TestNewDir(t *testing.T) {
-	nfs := fs.New()
-	v := NewDir(nfs)
+	mfs := fs.New()
+	v := NewDir(mfs)
 	expected := new(VDir)
-	expected.fs = nfs
+	expected.fs = mfs
 	assert.Equal(t, expected, v)
+}
+
+func TestOpen(t *testing.T) {
+	mfs := fs.New()
+	mfs.On("Open", "filepath.ext").Return()
+	v := NewDir(mfs)
+	v.Open("filepath.ext")
 }
