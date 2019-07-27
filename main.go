@@ -1,6 +1,6 @@
 package main
 
-import "github.com/LLKennedy/website/internal/app"
+import "github.com/LLKennedy/webserver/internal/app"
 
 func main() {
 	app.Start()
