@@ -1,6 +1,7 @@
 package vnet
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
@@ -16,8 +17,15 @@ func TestNewDir(t *testing.T) {
 }
 
 func TestOpen(t *testing.T) {
-	mfs := fs.New()
-	mfs.On("Open", "filepath.ext").Return()
+	f := fs.NewFile("filepath.ext", []byte("hello"), fmt.Errorf("somehow opened"), nil, false)
+	mfs := fs.New(f)
 	v := NewDir(mfs)
-	v.Open("filepath.ext")
+	file, err := v.Open("filepath.ext")
+	assert.EqualError(t, err, "somehow opened")
+	vf, ok := file.(*vfile)
+	if assert.True(t, ok) {
+		assert.Equal(t, f, vf.file)
+		assert.Equal(t, mfs, vf.fs)
+		assert.Equal(t, "filepath.ext", vf.path)
+	}
 }

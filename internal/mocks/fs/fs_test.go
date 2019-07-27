@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/tools/godoc/vfs"
 )
 
@@ -14,9 +15,12 @@ func TestNewFile(t *testing.T) {
 	expected.name = "filename.ext"
 	expected.data = []byte("hello")
 	expected.err = fmt.Errorf("an error")
-	assert.Equal(t, expected, f)
+	assert.Equal(t, 1, len(f.ExpectedCalls))
 	err := f.Close()
 	assert.EqualError(t, err, "another error")
+	f.Calls = []mock.Call(nil)
+	f.ExpectedCalls = []*mock.Call(nil)
+	assert.Equal(t, expected, f)
 	f.AssertExpectations(t)
 }
 
@@ -30,11 +34,13 @@ func TestNew(t *testing.T) {
 		f := NewFile("filename.ext", []byte("hello"), fmt.Errorf("an error"), nil, false)
 		m := New(f)
 		exFs := new(MockFS)
-		exFs.On("Open", "filename.ext").Return(f, fmt.Errorf("an error"))
-		assert.Equal(t, exFs.Calls[0], m.Calls[0])
+		assert.Equal(t, 1, len(m.ExpectedCalls))
 		f2, err := m.Open("filename.ext")
 		assert.Equal(t, f, f2)
 		assert.EqualError(t, err, "an error")
+		m.Calls = []mock.Call(nil)
+		m.ExpectedCalls = []*mock.Call(nil)
+		assert.Equal(t, exFs, m)
 		m.AssertExpectations(t)
 	})
 }
