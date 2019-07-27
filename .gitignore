@@ -59,3 +59,7 @@ typings/
 
 # next.js build output
 .next
+*.exe
+*.out
+*.s3cfg
+ui/junit.xml
