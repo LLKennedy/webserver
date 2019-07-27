@@ -13,29 +13,28 @@ type VDir struct {
 	fs vfs.FileSystem
 }
 
-// VFile is a virtual http.File
-type VFile struct {
+// vfile is a virtual http.File
+type vfile struct {
 	path string
 	file vfs.ReadSeekCloser
 	fs   vfs.FileSystem
 }
 
 // NewDir returns a new virtual directory on the specified file system
-func NewDir(fs vfs.FileSystem) (*VDir, error) {
-	v := &VDir{}
+func NewDir(fs vfs.FileSystem) *VDir {
+	v := &VDir{
+		fs: fs,
+	}
 	_ = http.FileSystem(v)
-	return v, nil
+	return v
 }
-
-// NewFile returns a new virtual file
-func NewFile(path string, fs vfs.ReedSeekCloser)
 
 // Open opens a file at the specified path
 func (v *VDir) Open(path string) (http.File, error) {
 	if v.getFs() == nil {
 		return nil, fmt.Errorf("cannot open file on nil file system")
 	}
-	f := &VFile{
+	f := &vfile{
 		path: path,
 		fs:   v.getFs(),
 	}
@@ -45,7 +44,7 @@ func (v *VDir) Open(path string) (http.File, error) {
 }
 
 // Seek seeks on the file
-func (f *VFile) Seek(offset int64, whence int) (int64, error) {
+func (f *vfile) Seek(offset int64, whence int) (int64, error) {
 	if f.getFile() == nil {
 		return 0, fmt.Errorf("cannot seek on nil file")
 	}
@@ -53,7 +52,7 @@ func (f *VFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 // Read reads from the file
-func (f *VFile) Read(p []byte) (n int, err error) {
+func (f *vfile) Read(p []byte) (n int, err error) {
 	if f.getFile() == nil {
 		return 0, fmt.Errorf("cannot read on nil file")
 	}
@@ -61,7 +60,7 @@ func (f *VFile) Read(p []byte) (n int, err error) {
 }
 
 // Close closes the file
-func (f *VFile) Close() error {
+func (f *vfile) Close() error {
 	if f.getFile() == nil {
 		return nil
 	}
@@ -69,7 +68,7 @@ func (f *VFile) Close() error {
 }
 
 // Readdir reads the directory on the file system
-func (f *VFile) Readdir(count int) ([]os.FileInfo, error) {
+func (f *vfile) Readdir(count int) ([]os.FileInfo, error) {
 	if f.getFs() == nil {
 		return nil, fmt.Errorf("cannot read directory on nil file system")
 	}
@@ -81,7 +80,7 @@ func (f *VFile) Readdir(count int) ([]os.FileInfo, error) {
 }
 
 // Stat reads the file stats on the file
-func (f *VFile) Stat() (os.FileInfo, error) {
+func (f *vfile) Stat() (os.FileInfo, error) {
 	if f.getFs() == nil {
 		return nil, fmt.Errorf("cannot get stats on nil file")
 	}
@@ -95,21 +94,21 @@ func (v *VDir) getFs() vfs.FileSystem {
 	return v.fs
 }
 
-func (f *VFile) getPath() string {
+func (f *vfile) getPath() string {
 	if f == nil {
 		return ""
 	}
 	return f.path
 }
 
-func (f *VFile) getFs() vfs.FileSystem {
+func (f *vfile) getFs() vfs.FileSystem {
 	if f == nil {
 		return nil
 	}
 	return f.fs
 }
 
-func (f *VFile) getFile() vfs.ReadSeekCloser {
+func (f *vfile) getFile() vfs.ReadSeekCloser {
 	if f == nil {
 		return nil
 	}
