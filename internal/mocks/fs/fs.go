@@ -7,45 +7,56 @@ import (
 	"golang.org/x/tools/godoc/vfs"
 )
 
-type mockFS struct {
+// MockFS is a mock file system
+type MockFS struct {
 	mock.Mock
 }
 
 // New creates a new mock file system
-func New() vfs.FileSystem {
-	return new(mockFS)
+func New() *MockFS {
+	m := new(MockFS)
+	_ = vfs.FileSystem(m)
+	return m
 }
 
 // Open opens a file
-func (m *mockFS) Open(path string) (vfs.ReadSeekCloser, error) {
+func (m *MockFS) Open(path string) (vfs.ReadSeekCloser, error) {
 	args := m.Called(path)
-	return args.Get(0).(vfs.ReadSeekCloser), args.Error(1)
+	var file vfs.ReadSeekCloser
+	file, _ = args.Get(0).(vfs.ReadSeekCloser)
+	return file, args.Error(1)
 }
 
 // Lstat gets stats
-func (m *mockFS) Lstat(path string) (os.FileInfo, error) {
+func (m *MockFS) Lstat(path string) (os.FileInfo, error) {
 	args := m.Called(path)
-	return args.Get(0).(os.FileInfo), args.Error(1)
+	var file os.FileInfo
+	file, _ = args.Get(0).(os.FileInfo)
+	return file, args.Error(1)
 }
 
 // Stat gets stats
-func (m *mockFS) Stat(path string) (os.FileInfo, error) {
+func (m *MockFS) Stat(path string) (os.FileInfo, error) {
 	args := m.Called(path)
-	return args.Get(0).(os.FileInfo), args.Error(1)
+	var file os.FileInfo
+	file, _ = args.Get(0).(os.FileInfo)
+	return file, args.Error(1)
 }
 
 // ReadDir reads a directory
-func (m *mockFS) ReadDir(path string) ([]os.FileInfo, error) {
+func (m *MockFS) ReadDir(path string) ([]os.FileInfo, error) {
 	args := m.Called(path)
-	return args.Get(0).([]os.FileInfo), args.Error(1)
+	var file []os.FileInfo
+	file, _ = args.Get(0).([]os.FileInfo)
+	return file, args.Error(1)
 }
 
 // RootType gets the root type
-func (m *mockFS) RootType(path string) vfs.RootType {
+func (m *MockFS) RootType(path string) vfs.RootType {
 	return m.Called(path).Get(0).(vfs.RootType)
 }
 
 // String gets the file system as a string
-func (m *mockFS) String() string {
+func (m *MockFS) String() string {
 	return m.Called().String(0)
 }
