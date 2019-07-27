@@ -42,6 +42,7 @@ jobs:
         - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
         - chmod +x ./cc-test-reporter
         - ./cc-test-reporter before-build
+        - export GO111MODULE=on
       script: 
         - mandatory_coverage="90"
         - go test ./internal/... -coverprofile=c.out
@@ -56,5 +57,5 @@ jobs:
       language: go
       go: 1.12.x
       before_script:
-        - export GO111MODULE=auto
+        - export GO111MODULE=on
       script: exit 0 # write deployment code
