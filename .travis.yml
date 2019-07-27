@@ -1,31 +1,19 @@
 stages:
   - compile
   - test
-  - aggregate
-  - report
   - name: deploy
     if: branch = master
 
 jobs:
   include:
-    - name: server
+    - name: compile
       stage: compile
       language: go
       go: 1.12.x
       before_script:
         - export GO111MODULE=auto
-      script: go build -o server.o ./server 
-    - name: ui
-      stage: compile
-      language: node_js
-      node_js: 10
-      cache:
-        directories:
-          - node_modules
-      install:
-        - cd ui; npm install
-      script: npm run build
-    - name: server lint
+      script: go build .
+    - name: lint
       stage: test
       language: go
       go: 1.12.x
@@ -37,93 +25,36 @@ jobs:
         - golint --set_exit_status ./...
         - if [[ $(gofmt -s -l .) ]]; then gofmt -s -l .; exit 1; fi 
         - if [[ $(goimports -l .) ]]; then goimports -l .; exit 1; fi
-    - name: server test
+    - name: test
       stage: test
       language: go
       go: 1.12.x
       before_script:
         - export GO111MODULE=auto
       script: 
-        - go test ./server/internal/... -race
-    - name: server coverage
+        - go test ./internal/... -race
+    - name: coverage
       stage: test
       language: go
       go: 1.12.x
+      before_install: go get github.com/mattn/goveralls
       before_script:
-        - export GO111MODULE=off
-        - go get github.com/jstemmer/go-junit-report
-        - export GO111MODULE=auto
+        - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+        - chmod +x ./cc-test-reporter
+        - ./cc-test-reporter before-build
       script: 
         - mandatory_coverage="90"
-        - mkdir coverage
-        - go test ./server/internal/... -coverprofile=c.out
-        - go tool cover -func=c.out > coverage/coverage.txt
-        - coverage_percent=$(grep -Eo "total:.*\(statements\).*[0-9.]+" coverage/coverage.txt | grep -Eo "[0-9]+\.[0-9]+" | bc) # I am not good at bash
+        - go test ./internal/... -coverprofile=c.out
+        - go tool cover -func=c.out > coverage.txt
+        - coverage_percent=$(grep -Eo "total:.*\(statements\).*[0-9.]+" coverage.txt | grep -Eo "[0-9]+\.[0-9]+" | bc) # I am not good at bash
         - if [ $(bc -l <<< "$coverage_percent < $mandatory_coverage") -eq 1 ]; then echo "Coverage percentage was ${coverage_percent}, must be at least ${mandatory_coverage}!"; exit 1; fi
-        - go test ./server/internal/... -v 2>&1 | go-junit-report > coverage/report.xml
-      deploy:
-        provider: s3
-        bucket: "lukekennedy-net-travis"
-        region: ap-southeast-2
-        skip_cleanup: true
-        local_dir: coverage
-        upload_dir: $TRAVIS_BUILD_NUMBER/server
-        on:
-          all_branches: true
-    - name: ui
-      stage: test
-      language: node_js
-      node_js: 10
-      cache:
-        directories:
-          - node_modules
-      install:
-        - cd ui; npm install
-      script: npm run test:ci
-      deploy:
-        provider: s3
-        bucket: "lukekennedy-net-travis"
-        region: ap-southeast-2
-        skip_cleanup: true
-        local_dir: coverage
-        upload_dir: $TRAVIS_BUILD_NUMBER/ui
-        on:
-          all_branches: true
-    - merge_coverage: coveralls
-      stage: aggregate
-      language: node_js
-      node_js: 10
-      cache:
-        directories:
-          - node_modules
-      install:
-        - npm install junit-merge
-        - npm install s3-cli
-      script: 
-        # write access credentials to config file for s3-cli
-        - echo "[default]" >> ./.s3cfg
-        - echo "access_key = ${AWS_ACCESS_KEY_ID}" >> ./.s3cfg
-        - echo "secret_key = ${AWS_SECRET_ACCESS_KEY}" >> ./.s3cfg
-        # pull individually built coverage reports into local storage
-        - mkdir build_cov
-        - s3-cli sync --region=ap-southeast-2 --config "./.s3cfg" s3://lukekennedy-net-travis/$TRAVIS_BUILD_NUMBER/ ./build_cov/
-        - junit-merge -o combined.xml ./build_cov/server/report.xml ./build_cov/ui/junit.xml
-        - cat combined.xml
-    - name: server
+      after_script:
+        - $GOPATH/bin/goveralls -coverprofile=c.out -service=travis-ci
+        - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
+    - name: deploy
       stage: deploy
       language: go
       go: 1.12.x
       before_script:
         - export GO111MODULE=auto
-      script: exit 0 # write deployment code
-    - name: ui
-      stage: deploy
-      language: node_js
-      node_js: 10
-      cache:
-        directories:
-          - node_modules
-      install:
-        - cd ui
-        - npm install
       script: exit 0 # write deployment code
