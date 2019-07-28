@@ -103,3 +103,11 @@ func TestGetAddress(t *testing.T) {
 		assert.Equal(t, inaddr, outaddr)
 	})
 }
+
+func TestServeHTTP(t *testing.T) {
+	s := &HTTPServer{}
+	testFunc := func() {
+		s.ServeHTTP(nil, nil)
+	}
+	assert.NotPanics(t, testFunc)
+}
