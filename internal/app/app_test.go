@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStart(t *testing.T) {
+func TestRun(t *testing.T) {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
-	Start()
+	Run()
 	log.SetOutput(os.Stdout)
 	output := buf.Bytes()
 	expected := "hello world\n"
