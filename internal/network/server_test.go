@@ -2,10 +2,13 @@ package network
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
+	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -27,32 +30,40 @@ func (m *mockLayer) ListenAndServeTLS(addr string, certFile string, keyFile stri
 func TestNewHTTPServer(t *testing.T) {
 	mfs := fs.New()
 	layer := HTTP{}
-	s := NewHTTPServer(mfs, layer)
-	assert.Equal(t, &HTTPServer{Address: "localhost", fs: mfs, layer: layer}, s)
+	logger := mocklog.New()
+	s := NewHTTPServer(logger, mfs, layer)
+	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", fs: mfs, layer: layer}, s)
+	assert.Equal(t, "", logger.GetContents())
 }
 
 func TestStart(t *testing.T) {
 	t.Run("no error", func(t *testing.T) {
 		mfs := fs.New()
 		layer := new(mockLayer)
+		logger := mocklog.New()
 		s := &HTTPServer{
-			layer: layer,
-			fs:    mfs,
+			logger: logger,
+			layer:  layer,
+			fs:     mfs,
 		}
 		layer.On("ListenAndServe", s.getAddress(), s).Return(nil)
 		err := s.Start()
 		assert.NoError(t, err)
+		assert.Equal(t, "<nil>\n", logger.GetContents())
 	})
 	t.Run("error", func(t *testing.T) {
 		mfs := fs.New()
 		layer := new(mockLayer)
+		logger := mocklog.New()
 		s := &HTTPServer{
-			layer: layer,
-			fs:    mfs,
+			logger: logger,
+			layer:  layer,
+			fs:     mfs,
 		}
 		layer.On("ListenAndServe", s.getAddress(), s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
 		assert.EqualError(t, err, "http server closed unexpectedly: some network error")
+		assert.Equal(t, "http server closed unexpectedly: some network error\n", logger.GetContents())
 	})
 }
 
@@ -69,6 +80,22 @@ func TestGetFs(t *testing.T) {
 		}
 		gfs := s.getFs()
 		assert.Equal(t, mfs, gfs)
+	})
+}
+
+func TestGetLogger(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		var s *HTTPServer
+		logger := s.getLogger()
+		assert.Nil(t, logger)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		mlogger := log.New(os.Stdout, "test", log.Flags())
+		s := &HTTPServer{
+			logger: mlogger,
+		}
+		logger := s.getLogger()
+		assert.Equal(t, mlogger, logger)
 	})
 }
 

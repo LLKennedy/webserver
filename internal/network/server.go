@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/LLKennedy/webserver/internal/utility/logs"
 	"golang.org/x/tools/godoc/vfs"
 )
 
@@ -12,6 +13,7 @@ type HTTPServer struct {
 	Address string
 	fs      vfs.FileSystem
 	layer   Layer
+	logger  logs.Logger
 }
 
 // Layer is a network on which to listen and serve HTTP
@@ -21,8 +23,9 @@ type Layer interface {
 }
 
 // NewHTTPServer creates a new HTTP Server
-func NewHTTPServer(fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
+func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
 	server := &HTTPServer{
+		logger:  logger,
 		Address: "localhost",
 		fs:      fileSystem,
 		layer:   layer,
@@ -36,12 +39,20 @@ func (s *HTTPServer) Start() error {
 	if err != nil {
 		err = fmt.Errorf("http server closed unexpectedly: %v", err)
 	}
+	s.getLogger().Printf("%v\n", err)
 	return err
 }
 
 // ServeHTTP serves HTTP
 func (s *HTTPServer) ServeHTTP(http.ResponseWriter, *http.Request) {
 
+}
+
+func (s *HTTPServer) getLogger() logs.Logger {
+	if s == nil {
+		return nil
+	}
+	return s.logger
 }
 
 func (s *HTTPServer) getFs() vfs.FileSystem {
