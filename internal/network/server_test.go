@@ -55,3 +55,51 @@ func TestStart(t *testing.T) {
 		assert.EqualError(t, err, "http server closed unexpectedly: some network error")
 	})
 }
+
+func TestGetFs(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		var s *HTTPServer
+		gfs := s.getFs()
+		assert.Nil(t, gfs)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		mfs := fs.New()
+		s := &HTTPServer{
+			fs: mfs,
+		}
+		gfs := s.getFs()
+		assert.Equal(t, mfs, gfs)
+	})
+}
+
+func TestGetLayer(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		var s *HTTPServer
+		layer := s.getLayer()
+		assert.Nil(t, layer)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		mlayer := new(mockLayer)
+		s := &HTTPServer{
+			layer: mlayer,
+		}
+		layer := s.getLayer()
+		assert.Equal(t, mlayer, layer)
+	})
+}
+
+func TestGetAddress(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		var s *HTTPServer
+		layer := s.getAddress()
+		assert.Empty(t, layer)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		inaddr := "localhost"
+		s := &HTTPServer{
+			Address: inaddr,
+		}
+		outaddr := s.getAddress()
+		assert.Equal(t, inaddr, outaddr)
+	})
+}
