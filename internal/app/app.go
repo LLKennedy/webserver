@@ -1,35 +1,40 @@
 package app
 
 import (
-	"log"
-
+	"github.com/LLKennedy/webserver/internal/network"
 	"golang.org/x/tools/godoc/vfs"
 )
 
 var (
-	fileSystem = vfs.OS(".")
+	fileSystem vfs.FileSystem  = vfs.OS(".")
+	net    network.Layer = network.HTTP{}
 )
 
 // App is the application
 type App struct {
-	fs vfs.FileSystem
+	HTTPServer Server
+}
+
+// Server starts and only exits if there's an error
+type Server interface {
+	Start() error
 }
 
 // Run creates, configures and starts the app
 func Run() {
-	a := New(fileSystem)
+	a := New(fileSystem, net)
 	a.Start()
 }
 
 // New creates a new app struct
-func New(fs vfs.FileSystem) *App {
+func New(fs vfs.FileSystem, net network.Layer) *App {
 	a := &App{
-		fs: fs,
+		HTTPServer: network.NewHTTPServer(fs, net),
 	}
 	return a
 }
 
 // Start starts the app
 func (a *App) Start() {
-	log.Println("hello world")
+	a.HTTPServer.Start()
 }
