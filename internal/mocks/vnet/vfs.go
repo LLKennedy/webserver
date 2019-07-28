@@ -48,7 +48,7 @@ func (f *vfile) Seek(offset int64, whence int) (int64, error) {
 	if f.getFile() == nil {
 		return 0, fmt.Errorf("cannot seek on nil file")
 	}
-	return f.file.Seek(offset, whence)
+	return f.getFile().Seek(offset, whence)
 }
 
 // Read reads from the file
@@ -56,7 +56,7 @@ func (f *vfile) Read(p []byte) (n int, err error) {
 	if f.getFile() == nil {
 		return 0, fmt.Errorf("cannot read on nil file")
 	}
-	return f.file.Read(p)
+	return f.getFile().Read(p)
 }
 
 // Close closes the file
@@ -64,7 +64,7 @@ func (f *vfile) Close() error {
 	if f.getFile() == nil {
 		return nil
 	}
-	return f.file.Close()
+	return f.getFile().Close()
 }
 
 // Readdir reads the directory on the file system
@@ -72,7 +72,7 @@ func (f *vfile) Readdir(count int) ([]os.FileInfo, error) {
 	if f.getFs() == nil {
 		return nil, fmt.Errorf("cannot read directory on nil file system")
 	}
-	list, err := f.fs.ReadDir(f.getPath())
+	list, err := f.getFs().ReadDir(f.getPath())
 	if count > 0 && count < len(list) {
 		list = list[:count]
 	}
@@ -81,10 +81,10 @@ func (f *vfile) Readdir(count int) ([]os.FileInfo, error) {
 
 // Stat reads the file stats on the file
 func (f *vfile) Stat() (os.FileInfo, error) {
-	if f.getFs() == nil {
-		return nil, fmt.Errorf("cannot get stats on nil file")
+	if f.getFs() == nil || f.getPath() == "" {
+		return nil, fmt.Errorf("cannot get stats on nil file system")
 	}
-	return f.fs.Stat(f.path)
+	return f.getFs().Stat(f.getPath())
 }
 
 func (v *VDir) getFs() vfs.FileSystem {
