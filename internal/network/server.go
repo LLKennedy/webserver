@@ -11,11 +11,10 @@ import (
 
 // HTTPServer is an HTTP Server
 type HTTPServer struct {
-	Address string
-	fs      vfs.FileSystem
-	layer   Layer
-	logger  logs.Logger
-	hfs     http.FileSystem
+	Address    string
+	layer      Layer
+	logger     logs.Logger
+	fileServer http.Handler
 }
 
 // Layer is a network on which to listen and serve HTTP
@@ -27,11 +26,10 @@ type Layer interface {
 // NewHTTPServer creates a new HTTP Server
 func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
 	server := &HTTPServer{
-		logger:  logger,
-		Address: "localhost",
-		fs:      fileSystem,
-		layer:   layer,
-		hfs:     vnet.NewDir(fileSystem),
+		logger:     logger,
+		Address:    "localhost",
+		layer:      layer,
+		fileServer: http.FileServer(vnet.NewDir(fileSystem)),
 	}
 	return server
 }
@@ -47,8 +45,9 @@ func (s *HTTPServer) Start() error {
 }
 
 // ServeHTTP serves HTTP
-func (s *HTTPServer) ServeHTTP(http.ResponseWriter, *http.Request) {
-
+func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	fileServer := s.getFs()
+	fileServer.ServeHTTP(writer, request)
 }
 
 func (s *HTTPServer) getLogger() logs.Logger {
@@ -58,11 +57,11 @@ func (s *HTTPServer) getLogger() logs.Logger {
 	return s.logger
 }
 
-func (s *HTTPServer) getFs() vfs.FileSystem {
+func (s *HTTPServer) getFs() http.Handler {
 	if s == nil {
 		return nil
 	}
-	return s.fs
+	return s.fileServer
 }
 
 func (s *HTTPServer) getLayer() Layer {

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"runtime/debug"
 	"testing"
 
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
@@ -33,7 +35,7 @@ func TestNewHTTPServer(t *testing.T) {
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
-	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", fs: mfs, layer: layer, hfs: vnet.NewDir(mfs)}, s)
+	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", layer: layer, fileServer: http.FileServer(vnet.NewDir(mfs))}, s)
 	assert.Equal(t, "", logger.GetContents())
 }
 
@@ -43,9 +45,9 @@ func TestStart(t *testing.T) {
 		layer := new(mockLayer)
 		logger := mocklog.New()
 		s := &HTTPServer{
-			logger: logger,
-			layer:  layer,
-			fs:     mfs,
+			logger:     logger,
+			layer:      layer,
+			fileServer: http.FileServer(vnet.NewDir(mfs)),
 		}
 		layer.On("ListenAndServe", s.getAddress(), s).Return(nil)
 		err := s.Start()
@@ -57,9 +59,9 @@ func TestStart(t *testing.T) {
 		layer := new(mockLayer)
 		logger := mocklog.New()
 		s := &HTTPServer{
-			logger: logger,
-			layer:  layer,
-			fs:     mfs,
+			logger:     logger,
+			layer:      layer,
+			fileServer: http.FileServer(vnet.NewDir(mfs)),
 		}
 		layer.On("ListenAndServe", s.getAddress(), s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
@@ -75,9 +77,9 @@ func TestGetFs(t *testing.T) {
 		assert.Nil(t, gfs)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
-		mfs := fs.New()
+		mfs := new(mockHandler)
 		s := &HTTPServer{
-			fs: mfs,
+			fileServer: mfs,
 		}
 		gfs := s.getFs()
 		assert.Equal(t, mfs, gfs)
@@ -132,10 +134,34 @@ func TestGetAddress(t *testing.T) {
 	})
 }
 
+type mockResponseWriter struct{}
+
+func (m *mockResponseWriter) Header() http.Header {
+	return http.Header{}
+}
+
+func (m *mockResponseWriter) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+func (m *mockResponseWriter) WriteHeader(statusCode int) {
+
+}
+
 func TestServeHTTP(t *testing.T) {
-	s := &HTTPServer{}
+	mfs := fs.New()
+	mfs.On("Open", "/").Return(nil, fmt.Errorf("cannot open file"))
+	s := &HTTPServer{
+		fileServer: http.FileServer(vnet.NewDir(mfs)),
+	}
 	testFunc := func() {
-		s.ServeHTTP(nil, nil)
+		defer func() {
+			if r := recover(); r != nil {
+				assert.Failf(t, "caught error", "%v\n%s", r, debug.Stack())
+			}
+		}()
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{}})
 	}
 	assert.NotPanics(t, testFunc)
+	mfs.AssertExpectations(t)
 }
