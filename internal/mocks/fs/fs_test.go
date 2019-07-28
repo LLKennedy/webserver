@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -14,6 +15,7 @@ func TestNewFile(t *testing.T) {
 	expected := new(MockFile)
 	expected.name = "filename.ext"
 	expected.data = []byte("hello")
+	expected.buf = bytes.NewReader([]byte("hello"))
 	expected.err = fmt.Errorf("an error")
 	assert.Equal(t, 1, len(f.ExpectedCalls))
 	err := f.Close()
@@ -89,4 +91,39 @@ func TestString(t *testing.T) {
 	m.On("String").Return("")
 	s := m.String()
 	assert.Empty(t, s)
+}
+
+func TestSeek(t *testing.T) {
+	f := NewFile("filename.ext", []byte("hello"), nil, nil, false)
+	t.Run("no error", func(t *testing.T) {
+		sought, err := f.Seek(2, 1)
+		assert.Equal(t, sought, int64(2))
+		assert.NoError(t, err)
+	})
+	t.Run("error", func(t *testing.T) {
+		sought, err := f.Seek(50, 100)
+		assert.Equal(t, sought, int64(0))
+		assert.EqualError(t, err, "bytes.Reader.Seek: invalid whence")
+	})
+}
+
+func TestRead(t *testing.T) {
+	f := NewFile("filename.ext", []byte("hello"), nil, nil, false)
+	buf := make([]byte, 20)
+	bytesRead, err := f.Read(buf)
+	assert.Equal(t, 5, bytesRead)
+	assert.NoError(t, err)
+	assert.Equal(t, append([]byte("hello"), make([]byte, 15)...), buf)
+}
+
+func TestClose(t *testing.T) {
+	f := NewFile("filename.ext", []byte("hello"), nil, fmt.Errorf("error closing"), true)
+	err := f.Close()
+	assert.EqualError(t, err, "error closing")
+}
+
+func TestGetBuf(t *testing.T) {
+	var f *MockFile
+	buf := f.getBuf()
+	assert.Nil(t, buf)
 }

@@ -26,7 +26,6 @@ type MockFile struct {
 func New(files ...*MockFile) *MockFS {
 	m := new(MockFS)
 	for _, file := range files {
-		file.buf = bytes.NewReader(file.data)
 		m.On("Open", file.name).Return(file, file.err)
 	}
 	_ = vfs.FileSystem(m)
@@ -39,6 +38,7 @@ func NewFile(name string, data []byte, openErr, closeErr error, expectClose bool
 	m.name = name
 	m.err = openErr
 	m.data = data
+	m.buf = bytes.NewReader(data)
 	if expectClose {
 		m.On("Close").Return(closeErr)
 	}
