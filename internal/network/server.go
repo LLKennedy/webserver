@@ -21,6 +21,7 @@ type HTTPServer struct {
 type Layer interface {
 	ListenAndServe(addr string, handler http.Handler) error
 	ListenAndServeTLS(addr string, certFile string, keyFile string, handler http.Handler) error
+	FileServer(http.FileSystem) http.Handler
 }
 
 // NewHTTPServer creates a new HTTP Server
