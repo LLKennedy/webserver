@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	fileSystem vfs.FileSystem  = vfs.OS(".")
-	net    network.Layer = network.HTTP{}
+	fileSystem vfs.FileSystem = vfs.OS(".")
+	net        network.Layer  = network.HTTP{}
 )
 
 // App is the application
@@ -21,9 +21,9 @@ type Server interface {
 }
 
 // Run creates, configures and starts the app
-func Run() {
+func Run() error {
 	a := New(fileSystem, net)
-	a.Start()
+	return a.Start()
 }
 
 // New creates a new app struct
@@ -35,6 +35,6 @@ func New(fs vfs.FileSystem, net network.Layer) *App {
 }
 
 // Start starts the app
-func (a *App) Start() {
-	a.HTTPServer.Start()
+func (a *App) Start() error {
+	return a.HTTPServer.Start()
 }

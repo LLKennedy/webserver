@@ -11,7 +11,7 @@ import (
 type HTTPServer struct {
 	Address string
 	fs      vfs.FileSystem
-	net     Layer
+	layer   Layer
 }
 
 // Layer is a network on which to listen and serve HTTP
@@ -21,24 +21,27 @@ type Layer interface {
 }
 
 // NewHTTPServer creates a new HTTP Server
-func NewHTTPServer(fileSystem vfs.FileSystem, net Layer) *HTTPServer {
+func NewHTTPServer(fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
 	server := &HTTPServer{
 		Address: "localhost",
 		fs:      fileSystem,
-		net:     net,
+		layer:   layer,
 	}
 	return server
 }
 
 // Start starts the server
 func (s *HTTPServer) Start() error {
-	http.ListenAndServe("localhost", s)
-	return fmt.Errorf("http server closed unexpectedly")
+	err := s.getLayer().ListenAndServe(s.getAddress(), s)
+	if err != nil {
+		err = fmt.Errorf("http server closed unexpectedly: %v", err)
+	}
+	return err
 }
 
 // ServeHTTP serves HTTP
 func (s *HTTPServer) ServeHTTP(http.ResponseWriter, *http.Request) {
-	s.getLayer().ListenAndServe(s.getAddress(), s)
+
 }
 
 func (s *HTTPServer) getFs() vfs.FileSystem {
@@ -52,7 +55,7 @@ func (s *HTTPServer) getLayer() Layer {
 	if s == nil {
 		return nil
 	}
-	return s.net
+	return s.layer
 }
 
 func (s *HTTPServer) getAddress() string {
