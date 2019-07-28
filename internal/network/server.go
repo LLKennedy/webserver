@@ -27,7 +27,7 @@ type Layer interface {
 func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
 	server := &HTTPServer{
 		logger:     logger,
-		Address:    "localhost",
+		Address:    "localhost:80",
 		layer:      layer,
 		fileServer: http.FileServer(vnet.NewDir(fileSystem)),
 	}

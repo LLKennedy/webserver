@@ -9,11 +9,11 @@ import (
 	"runtime/debug"
 	"testing"
 
-	"github.com/LLKennedy/webserver/internal/mocks/fs"
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
 	"github.com/LLKennedy/webserver/internal/mocks/vnet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"golang.org/x/tools/godoc/vfs"
 )
 
 type mockLayer struct {
@@ -31,7 +31,7 @@ func (m *mockLayer) ListenAndServeTLS(addr string, certFile string, keyFile stri
 }
 
 func TestNewHTTPServer(t *testing.T) {
-	mfs := fs.New()
+	mfs := vfs.NewNameSpace()
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
@@ -41,7 +41,7 @@ func TestNewHTTPServer(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	t.Run("no error", func(t *testing.T) {
-		mfs := fs.New()
+		mfs := vfs.NewNameSpace()
 		layer := new(mockLayer)
 		logger := mocklog.New()
 		s := &HTTPServer{
@@ -55,7 +55,7 @@ func TestStart(t *testing.T) {
 		assert.Equal(t, "<nil>\n", logger.GetContents())
 	})
 	t.Run("error", func(t *testing.T) {
-		mfs := fs.New()
+		mfs := vfs.NewNameSpace()
 		layer := new(mockLayer)
 		logger := mocklog.New()
 		s := &HTTPServer{
@@ -149,8 +149,7 @@ func (m *mockResponseWriter) WriteHeader(statusCode int) {
 }
 
 func TestServeHTTP(t *testing.T) {
-	mfs := fs.New()
-	mfs.On("Open", "/").Return(nil, fmt.Errorf("cannot open file"))
+	mfs := vfs.NewNameSpace()
 	s := &HTTPServer{
 		fileServer: http.FileServer(vnet.NewDir(mfs)),
 	}
@@ -163,5 +162,4 @@ func TestServeHTTP(t *testing.T) {
 		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{}})
 	}
 	assert.NotPanics(t, testFunc)
-	mfs.AssertExpectations(t)
 }
