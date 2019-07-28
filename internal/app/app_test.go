@@ -8,5 +8,5 @@ import (
 
 func TestRun(t *testing.T) {
 	err := Run()
-	assert.NoError(t, err)
+	assert.EqualError(t, err, "http server closed unexpectedly: listen tcp: address localhost: missing port in address")
 }
