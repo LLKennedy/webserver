@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/LLKennedy/webserver/internal/mocks/vnet"
 	"github.com/LLKennedy/webserver/internal/utility/logs"
 	"golang.org/x/tools/godoc/vfs"
 )
@@ -14,6 +15,7 @@ type HTTPServer struct {
 	fs      vfs.FileSystem
 	layer   Layer
 	logger  logs.Logger
+	hfs     http.FileSystem
 }
 
 // Layer is a network on which to listen and serve HTTP
@@ -29,6 +31,7 @@ func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *
 		Address: "localhost",
 		fs:      fileSystem,
 		layer:   layer,
+		hfs:     vnet.NewDir(fileSystem),
 	}
 	return server
 }

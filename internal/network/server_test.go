@@ -9,6 +9,7 @@ import (
 
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
+	"github.com/LLKennedy/webserver/internal/mocks/vnet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -32,7 +33,7 @@ func TestNewHTTPServer(t *testing.T) {
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
-	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", fs: mfs, layer: layer}, s)
+	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", fs: mfs, layer: layer, hfs: vnet.NewDir(mfs)}, s)
 	assert.Equal(t, "", logger.GetContents())
 }
 
