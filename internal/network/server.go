@@ -5,16 +5,18 @@ import (
 	"net/http"
 
 	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
+	"github.com/LLKennedy/webserver/internal/utility/filemask"
 	"github.com/LLKennedy/webserver/internal/utility/logs"
 	"golang.org/x/tools/godoc/vfs"
 )
 
 // HTTPServer is an HTTP Server
 type HTTPServer struct {
-	Address    string
-	layer      Layer
-	logger     logs.Logger
-	fileServer http.Handler
+	Address      string
+	layer        Layer
+	logger       logs.Logger
+	fileServer   http.Handler
+	staticServer http.Handler
 }
 
 // Layer is a network on which to listen and serve HTTP
@@ -27,10 +29,11 @@ type Layer interface {
 // NewHTTPServer creates a new HTTP Server
 func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
 	server := &HTTPServer{
-		logger:     logger,
-		Address:    "localhost:80",
-		layer:      layer,
-		fileServer: http.FileServer(mocknetwork.NewDir(fileSystem)),
+		logger:       logger,
+		Address:      "localhost:80",
+		layer:        layer,
+		fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/"))),
+		staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/static"))),
 	}
 	return server
 }
@@ -47,8 +50,19 @@ func (s *HTTPServer) Start() error {
 
 // ServeHTTP serves HTTP
 func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	fileServer := s.getFs()
-	fileServer.ServeHTTP(writer, request)
+	writer.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	writer.Header().Set("Content-Security-Policy", "default-src http://localhost:80; script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+	writer.Header().Set("X-Frame-Options", "SAMEORIGIN")
+	writer.Header().Set("X-XSS-Protection", "1; mode=block")
+	writer.Header().Set("Referrer-Policy", "no-referrer")
+	writer.Header().Set("Feature-Policy", "*")
+	head, _ := getPathNode(request.URL.Path)
+	fileServer, staticServer := s.getFs()
+	if head == "static" {
+		staticServer.ServeHTTP(writer, request)
+	} else {
+		fileServer.ServeHTTP(writer, request)
+	}
 }
 
 func (s *HTTPServer) getLogger() logs.Logger {
@@ -58,11 +72,11 @@ func (s *HTTPServer) getLogger() logs.Logger {
 	return s.logger
 }
 
-func (s *HTTPServer) getFs() http.Handler {
+func (s *HTTPServer) getFs() (http.Handler, http.Handler) {
 	if s == nil {
-		return nil
+		return nil, nil
 	}
-	return s.fileServer
+	return s.fileServer, s.staticServer
 }
 
 func (s *HTTPServer) getLayer() Layer {
