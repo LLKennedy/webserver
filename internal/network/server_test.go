@@ -10,37 +10,16 @@ import (
 	"testing"
 
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
-	"github.com/LLKennedy/webserver/internal/mocks/network"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"golang.org/x/tools/godoc/vfs"
 )
-
-type mockLayer struct {
-	mock.Mock
-}
-
-func (m *mockLayer) ListenAndServe(addr string, handler http.Handler) error {
-	args := m.Called(addr, handler)
-	return args.Error(0)
-}
-
-func (m *mockLayer) ListenAndServeTLS(addr string, certFile string, keyFile string, handler http.Handler) error {
-	args := m.Called(addr, certFile, keyFile, handler)
-	return args.Error(0)
-}
-
-func (m *mockLayer) FileServer(dir http.FileSystem) http.Handler {
-	args := m.Called(dir)
-	return args.Get(0).(http.Handler)
-}
 
 func TestNewHTTPServer(t *testing.T) {
 	mfs := vfs.NewNameSpace()
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
-	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", layer: layer, fileServer: http.FileServer(network.NewDir(mfs))}, s)
+	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", layer: layer, fileServer: http.FileServer(mocknetwork.NewDir(mfs))}, s)
 	assert.Equal(t, "", logger.GetContents())
 }
 
@@ -52,7 +31,7 @@ func TestStart(t *testing.T) {
 		s := &HTTPServer{
 			logger:     logger,
 			layer:      layer,
-			fileServer: http.FileServer(network.NewDir(mfs)),
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
 		}
 		layer.On("ListenAndServe", s.getAddress(), s).Return(nil)
 		err := s.Start()
@@ -66,7 +45,7 @@ func TestStart(t *testing.T) {
 		s := &HTTPServer{
 			logger:     logger,
 			layer:      layer,
-			fileServer: http.FileServer(network.NewDir(mfs)),
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
 		}
 		layer.On("ListenAndServe", s.getAddress(), s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
@@ -156,7 +135,7 @@ func (m *mockResponseWriter) WriteHeader(statusCode int) {
 func TestServeHTTP(t *testing.T) {
 	mfs := vfs.NewNameSpace()
 	s := &HTTPServer{
-		fileServer: http.FileServer(network.NewDir(mfs)),
+		fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
 	}
 	testFunc := func() {
 		defer func() {
