@@ -19,5 +19,12 @@ func TestMain(t *testing.T) {
 	}
 	main()
 	assert.Equal(t, 1, runCount)
-	assert.Equal(t, 1, exitCode)
+	assert.Equal(t, 0, exitCode)
+	runApp = func() error {
+		runCount++
+		return nil
+	}
+	main()
+	assert.Equal(t, 2, runCount)
+	assert.Equal(t, 0, exitCode)
 }

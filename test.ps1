@@ -1,7 +1,7 @@
 gofmt -s -w .
 goimports -w .
 golint ./...
-go test ./internal/... -race -cover -coverprofile="coverage.out"; 
+go test ./... -race -cover -coverprofile="coverage.out"; 
 if ($LastExitCode -eq 0) {
 	go tool cover -html="coverage.out";
 	go tool cover -func="coverage.out";
