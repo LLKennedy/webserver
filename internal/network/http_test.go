@@ -41,5 +41,5 @@ func TestFileServer(t *testing.T) {
 	vdir := mocknetwork.NewDir(mfs)
 	layer := HTTP{}
 	handler := layer.FileServer(vdir)
-	assert.Nil(t, http.FileServer(vdir), handler)
+	assert.Equal(t, http.FileServer(vdir), handler)
 }

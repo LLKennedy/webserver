@@ -20,7 +20,7 @@ func TestNewHTTPServer(t *testing.T) {
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
-	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", layer: layer, fileServer: http.FileServer(mocknetwork.NewDir(mfs))}, s)
+	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost:80", layer: layer, fileServer: http.FileServer(mocknetwork.NewDir(mfs))}, s)
 	assert.Equal(t, "", logger.GetContents())
 }
 
