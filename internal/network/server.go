@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
 	"github.com/LLKennedy/webserver/internal/utility/logs"
 	"golang.org/x/tools/godoc/vfs"
 )

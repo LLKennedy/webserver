@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/tools/godoc/vfs"

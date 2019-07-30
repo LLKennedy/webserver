@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
+	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/tools/godoc/vfs"
 )
@@ -26,7 +27,7 @@ func TestNewHTTPServer(t *testing.T) {
 func TestStart(t *testing.T) {
 	t.Run("no error", func(t *testing.T) {
 		mfs := vfs.NewNameSpace()
-		layer := new(mocknetwork.MockLayer)
+		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
 			logger:     logger,
@@ -40,7 +41,7 @@ func TestStart(t *testing.T) {
 	})
 	t.Run("error", func(t *testing.T) {
 		mfs := vfs.NewNameSpace()
-		layer := new(mocknetwork.MockLayer)
+		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
 			logger:     logger,
@@ -93,7 +94,7 @@ func TestGetLayer(t *testing.T) {
 		assert.Nil(t, layer)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
-		mlayer := new(mocknetwork.MockLayer)
+		mlayer := new(mocknetwork.Layer)
 		s := &HTTPServer{
 			layer: mlayer,
 		}

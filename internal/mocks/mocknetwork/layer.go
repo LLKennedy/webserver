@@ -1,4 +1,4 @@
-package network
+package mocknetwork
 
 import (
 	"net/http"
@@ -6,25 +6,25 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockLayer is a mock of network.Layer
-type MockLayer struct {
+// Layer is a mock of network.Layer
+type Layer struct {
 	mock.Mock
 }
 
 // ListenAndServe listens and serves HTTP
-func (m *MockLayer) ListenAndServe(addr string, handler http.Handler) error {
+func (m *Layer) ListenAndServe(addr string, handler http.Handler) error {
 	args := m.Called(addr, handler)
 	return args.Error(0)
 }
 
 // ListenAndServeTLS listens and serves HTTPS
-func (m *MockLayer) ListenAndServeTLS(addr string, certFile string, keyFile string, handler http.Handler) error {
+func (m *Layer) ListenAndServeTLS(addr string, certFile string, keyFile string, handler http.Handler) error {
 	args := m.Called(addr, certFile, keyFile, handler)
 	return args.Error(0)
 }
 
 // FileServer serves a file system as a webserver
-func (m *MockLayer) FileServer(dir http.FileSystem) http.Handler {
+func (m *Layer) FileServer(dir http.FileSystem) http.Handler {
 	args := m.Called(dir)
 	var handler http.Handler
 	if arg := args.Get(0); arg != nil {
