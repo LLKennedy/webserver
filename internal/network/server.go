@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/LLKennedy/webserver/internal/mocks/vnet"
+	"github.com/LLKennedy/webserver/internal/mocks/network"
 	"github.com/LLKennedy/webserver/internal/utility/logs"
 	"golang.org/x/tools/godoc/vfs"
 )
@@ -30,7 +30,7 @@ func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *
 		logger:     logger,
 		Address:    "localhost:80",
 		layer:      layer,
-		fileServer: http.FileServer(vnet.NewDir(fileSystem)),
+		fileServer: http.FileServer(network.NewDir(fileSystem)),
 	}
 	return server
 }

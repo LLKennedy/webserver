@@ -1,4 +1,4 @@
-package vnet
+package network
 
 import (
 	"fmt"
