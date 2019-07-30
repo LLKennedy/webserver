@@ -26,7 +26,7 @@ func TestNewHTTPServer(t *testing.T) {
 func TestStart(t *testing.T) {
 	t.Run("no error", func(t *testing.T) {
 		mfs := vfs.NewNameSpace()
-		layer := new(mockLayer)
+		layer := new(mocknetwork.MockLayer)
 		logger := mocklog.New()
 		s := &HTTPServer{
 			logger:     logger,
@@ -40,7 +40,7 @@ func TestStart(t *testing.T) {
 	})
 	t.Run("error", func(t *testing.T) {
 		mfs := vfs.NewNameSpace()
-		layer := new(mockLayer)
+		layer := new(mocknetwork.MockLayer)
 		logger := mocklog.New()
 		s := &HTTPServer{
 			logger:     logger,
@@ -93,7 +93,7 @@ func TestGetLayer(t *testing.T) {
 		assert.Nil(t, layer)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
-		mlayer := new(mockLayer)
+		mlayer := new(mocknetwork.MockLayer)
 		s := &HTTPServer{
 			layer: mlayer,
 		}

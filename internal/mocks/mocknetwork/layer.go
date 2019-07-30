@@ -26,5 +26,9 @@ func (m *MockLayer) ListenAndServeTLS(addr string, certFile string, keyFile stri
 // FileServer serves a file system as a webserver
 func (m *MockLayer) FileServer(dir http.FileSystem) http.Handler {
 	args := m.Called(dir)
-	return args.Get(0).(http.Handler)
+	var handler http.Handler
+	if arg := args.Get(0); arg != nil {
+		handler = arg.(http.Handler)
+	}
+	return handler
 }
