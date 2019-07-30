@@ -13,8 +13,10 @@ type mockHandler struct {
 	mock.Mock
 }
 
-func (m *mockHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
-
+func (m *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	args := m.Called(r)
+	writeFunc := args.Get(0).(func(http.ResponseWriter))
+	writeFunc(w)
 }
 
 func TestListenAndServe(t *testing.T) {
