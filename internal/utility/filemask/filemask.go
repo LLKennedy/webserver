@@ -21,6 +21,9 @@ func Wrap(fs vfs.FileSystem, relativePath string) vfs.FileSystem {
 
 // Open opens a file on the inner file system
 func (f *filemask) Open(path string) (vfs.ReadSeekCloser, error) {
+	if path == "/" || path == "" {
+		path = "/index.html"
+	}
 	fs, rpath := f.getProps(path)
 	return fs.Open(rpath)
 }

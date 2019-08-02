@@ -13,6 +13,7 @@ import (
 // HTTPServer is an HTTP Server
 type HTTPServer struct {
 	Address      string
+	Port         string
 	layer        Layer
 	logger       logs.Logger
 	fileServer   http.Handler
@@ -30,9 +31,10 @@ type Layer interface {
 func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
 	server := &HTTPServer{
 		logger:       logger,
-		Address:      "localhost:80",
+		Address:      "localhost",
+		Port:         "80",
 		layer:        layer,
-		fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/"))),
+		fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
 		staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/static"))),
 	}
 	return server
@@ -40,7 +42,7 @@ func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *
 
 // Start starts the server
 func (s *HTTPServer) Start() error {
-	err := s.getLayer().ListenAndServe(s.getAddress(), s)
+	err := s.getLayer().ListenAndServe(fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s)
 	if err != nil {
 		err = fmt.Errorf("http server closed unexpectedly: %v", err)
 	}
@@ -50,19 +52,30 @@ func (s *HTTPServer) Start() error {
 
 // ServeHTTP serves HTTP
 func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	writer.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-	writer.Header().Set("Content-Security-Policy", "default-src http://localhost:80; script-src 'self' 'unsafe-inline' 'unsafe-eval'")
-	writer.Header().Set("X-Frame-Options", "SAMEORIGIN")
-	writer.Header().Set("X-XSS-Protection", "1; mode=block")
-	writer.Header().Set("Referrer-Policy", "no-referrer")
-	writer.Header().Set("Feature-Policy", "*")
-	head, _ := getPathNode(request.URL.Path)
+	addr := s.getAddress()
+	protocol := "http"
+	s.getLogger().Printf("request: host=%s, remoteAddr=%s", request.Host, request.RemoteAddr)
+	setHeaders(writer, addr, protocol)
+	// writer.Header().Set("Feature-Policy", "*")
+	head, remainder := getPathNode(request.URL.Path)
 	fileServer, staticServer := s.getFs()
 	if head == "static" {
+		s.getLogger().Printf("static path: %s", remainder)
 		staticServer.ServeHTTP(writer, request)
 	} else {
+		s.getLogger().Printf("other path: %s", remainder)
 		fileServer.ServeHTTP(writer, request)
 	}
+}
+
+func setHeaders(writer http.ResponseWriter, addr, protocol string) {
+	writer.Header().Set("Strict-Transport-Security", fmt.Sprintf("max-age=31536000; includeSubDomains"))
+	writer.Header().Set("Content-Security-Policy", fmt.Sprintf("default-src 'self'; style-src 'self' 'nonce-yhbSSLk5nTP4sgETaQx5Lg=='; script-src 'self' 'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"))
+	writer.Header().Set("X-Frame-Options", fmt.Sprintf("SAMEORIGIN"))
+	writer.Header().Set("X-Content-Type-Options", fmt.Sprintf("nosniff"))
+	writer.Header().Set("X-XSS-Protection", fmt.Sprintf("1; mode=block; report=%s://%s/api/security/report", protocol, addr))
+	writer.Header().Set("Referrer-Policy", fmt.Sprintf("no-referrer"))
+	writer.Header().Set("Set-Cookie", fmt.Sprintf("HttpOnly;Secure;SameSite=Strict"))
 }
 
 func (s *HTTPServer) getLogger() logs.Logger {
@@ -72,7 +85,7 @@ func (s *HTTPServer) getLogger() logs.Logger {
 	return s.logger
 }
 
-func (s *HTTPServer) getFs() (http.Handler, http.Handler) {
+func (s *HTTPServer) getFs() (files http.Handler, static http.Handler) {
 	if s == nil {
 		return nil, nil
 	}
@@ -91,4 +104,11 @@ func (s *HTTPServer) getAddress() string {
 		return ""
 	}
 	return s.Address
+}
+
+func (s *HTTPServer) getPort() string {
+	if s == nil {
+		return ""
+	}
+	return s.Port
 }
