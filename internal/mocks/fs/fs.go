@@ -3,6 +3,7 @@ package fs
 import (
 	"bytes"
 	"os"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/tools/godoc/vfs"
@@ -15,11 +16,12 @@ type MockFS struct {
 
 // MockFile is a mock file
 type MockFile struct {
+	OverrideBuffer bool
 	mock.Mock
 	name string
 	data []byte
 	err  error
-	buf  *bytes.Reader
+	Buf  *bytes.Reader
 }
 
 // New creates a new mock file system
@@ -38,11 +40,12 @@ func NewFile(name string, data []byte, openErr, closeErr error, expectClose bool
 	m.name = name
 	m.err = openErr
 	m.data = data
-	m.buf = bytes.NewReader(data)
+	m.Buf = bytes.NewReader(data)
 	if expectClose {
 		m.On("Close").Return(closeErr)
 	}
 	_ = vfs.ReadSeekCloser(m)
+	_ = os.FileInfo(m)
 	return m
 }
 
@@ -90,6 +93,11 @@ func (m *MockFS) String() string {
 
 // Seek seeks on the file
 func (f *MockFile) Seek(offset int64, whence int) (int64, error) {
+	if f.OverrideBuffer {
+		args := f.Called(offset, whence)
+		i, _ := args.Get(0).(int64)
+		return i, args.Error(1)
+	}
 	return f.getBuf().Seek(offset, whence)
 }
 
@@ -104,10 +112,47 @@ func (f *MockFile) Close() error {
 	return args.Error(0)
 }
 
+// Name gets the name of the file
+func (f *MockFile) Name() string {
+	args := f.Called()
+	return args.String(0)
+}
+
+// Size gets the size of the file
+func (f *MockFile) Size() int64 {
+	args := f.Called()
+	size, _ := args.Get(0).(int64)
+	return size
+}
+
+// Mode gets the mode of the file
+func (f *MockFile) Mode() os.FileMode {
+	args := f.Called()
+	mode, _ := args.Get(0).(os.FileMode)
+	return mode
+}
+
+// ModTime gets the mod time of the file
+func (f *MockFile) ModTime() time.Time {
+	args := f.Called()
+	t, _ := args.Get(0).(time.Time)
+	return t
+}
+
+// IsDir returns whether the file is a directory
+func (f *MockFile) IsDir() bool {
+	return f.Called().Bool(0)
+}
+
+// Sys gets the system specific implementation of the file info
+func (f *MockFile) Sys() interface{} {
+	return f.Called().Get(0)
+}
+
 func (f *MockFile) getBuf() *bytes.Reader {
 	if f == nil {
 		var buf *bytes.Reader
 		return buf
 	}
-	return f.buf
+	return f.Buf
 }

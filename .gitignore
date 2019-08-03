@@ -8,6 +8,7 @@
 !*.json
 !*.ps1
 !*.sh
+build/
 
 # garnish
 .vscode/
@@ -17,6 +18,3 @@
 !go.mod
 !go.sum
 !LICENSE
-
-# special cases
-!internal/vendor/examples/**

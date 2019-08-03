@@ -1,4 +1,4 @@
-package vnet
+package mocknetwork
 
 import (
 	"fmt"

@@ -14,3 +14,8 @@ func (h HTTP) ListenAndServe(addr string, handler http.Handler) error {
 func (h HTTP) ListenAndServeTLS(addr string, certFile string, keyFile string, handler http.Handler) error {
 	return http.ListenAndServeTLS(addr, certFile, keyFile, handler)
 }
+
+// FileServer servies the file system over HTTP
+func (h HTTP) FileServer(fs http.FileSystem) http.Handler {
+	return http.FileServer(fs)
+}
