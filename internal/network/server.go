@@ -14,14 +14,13 @@ import (
 
 // HTTPServer is an HTTP Server
 type HTTPServer struct {
-	Address      string
-	Port         string
-	scriptHash   string
-	layer        Layer
-	logger       logs.Logger
-	fileSystem   vfs.FileSystem
-	fileServer   http.Handler
-	staticServer http.Handler
+	Address    string
+	Port       string
+	scriptHash string
+	layer      Layer
+	logger     logs.Logger
+	fileSystem vfs.FileSystem
+	fileServer http.Handler
 }
 
 // Layer is a network on which to listen and serve HTTP
@@ -34,13 +33,13 @@ type Layer interface {
 // NewHTTPServer creates a new HTTP Server
 func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
 	server := &HTTPServer{
-		logger:       logger,
-		Address:      "localhost",
-		Port:         "80",
-		layer:        layer,
-		fileSystem:   fileSystem,
-		fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
-		staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/static"))),
+		logger:     logger,
+		Address:    "localhost",
+		Port:       "80",
+		layer:      layer,
+		fileSystem: fileSystem,
+		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
+		// staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/static"))),
 	}
 	return server
 }
@@ -78,13 +77,7 @@ func (s *HTTPServer) Start() (err error) {
 func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	protocol := "http"
 	setHeaders(writer, s.getAddress(), protocol, s.getScriptHash())
-	head, _ := getPathNode(request.URL.Path)
-	fileServer, staticServer := s.getFs()
-	if head == "static" {
-		staticServer.ServeHTTP(writer, request)
-	} else {
-		fileServer.ServeHTTP(writer, request)
-	}
+	s.getFs().ServeHTTP(writer, request)
 }
 
 func (s *HTTPServer) readScriptHash() (scriptHash string, err error) {
@@ -131,11 +124,11 @@ func (s *HTTPServer) getLogger() logs.Logger {
 	return s.logger
 }
 
-func (s *HTTPServer) getFs() (files http.Handler, static http.Handler) {
+func (s *HTTPServer) getFs() http.Handler {
 	if s == nil {
-		return nil, nil
+		return nil
 	}
-	return s.fileServer, s.staticServer
+	return s.fileServer
 }
 
 func (s *HTTPServer) getLayer() Layer {

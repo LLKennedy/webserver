@@ -9,7 +9,6 @@ import (
 	"os"
 	"runtime/debug"
 	"testing"
-	"time"
 
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
@@ -25,13 +24,12 @@ func TestNewHTTPServer(t *testing.T) {
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
 	assert.Equal(t, &HTTPServer{
-		logger:       logger,
-		Address:      "localhost",
-		Port:         "80",
-		layer:        layer,
-		fileSystem:   mfs,
-		fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
-		staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
+		logger:     logger,
+		Address:    "localhost",
+		Port:       "80",
+		layer:      layer,
+		fileSystem: mfs,
+		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 	}, s)
 	assert.Equal(t, "", logger.GetContents())
 }
@@ -49,11 +47,10 @@ func TestStart(t *testing.T) {
 		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
-			logger:       logger,
-			layer:        layer,
-			fileSystem:   mfs,
-			fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
-			staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
+			logger:     logger,
+			layer:      layer,
+			fileSystem: mfs,
+			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
 		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(nil)
 		err := s.Start()
@@ -66,11 +63,10 @@ func TestStart(t *testing.T) {
 		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
-			logger:       logger,
-			layer:        layer,
-			fileSystem:   mfs,
-			fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
-			staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
+			logger:     logger,
+			layer:      layer,
+			fileSystem: mfs,
+			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
 		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
@@ -83,11 +79,10 @@ func TestStart(t *testing.T) {
 		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
-			logger:       logger,
-			layer:        layer,
-			fileSystem:   mfs,
-			fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
-			staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
+			logger:     logger,
+			layer:      layer,
+			fileSystem: mfs,
+			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
 		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
@@ -151,20 +146,17 @@ func TestGetFs(t *testing.T) {
 	t.Run("nil server", func(t *testing.T) {
 		defer catchPanic(t)
 		var s *HTTPServer
-		ffs, sfs := s.getFs()
+		ffs := s.getFs()
 		assert.Nil(t, ffs)
-		assert.Nil(t, sfs)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
 		defer catchPanic(t)
 		mfs := new(mockHandler)
 		s := &HTTPServer{
-			fileServer:   mfs,
-			staticServer: mfs,
+			fileServer: mfs,
 		}
-		ffs, sfs := s.getFs()
+		ffs := s.getFs()
 		assert.Equal(t, mfs, ffs)
-		assert.Equal(t, mfs, sfs)
 	})
 }
 
@@ -323,22 +315,5 @@ func TestServeHTTP(t *testing.T) {
 		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "/"}, Host: "", RemoteAddr: ""})
 		mfs.AssertExpectations(t)
 		rootFile.AssertExpectations(t)
-	})
-	t.Run("static file", func(t *testing.T) {
-		defer catchPanic(t)
-		staticFile := fs.NewFile("/static/something.js", []byte(""), nil, nil, true)
-		staticFile.On("IsDir").Return(false)
-		staticFile.On("Name").Return("something.js")
-		staticFile.On("ModTime").Return(time.Now())
-		staticFile.On("Size").Return(int64(len("")))
-		mfs := fs.New(staticFile)
-		mfs.On("Stat", "/static/something.js").Return(staticFile, nil)
-		s := &HTTPServer{
-			staticServer: http.FileServer(mocknetwork.NewDir(mfs)),
-			logger:       new(mockLogger),
-		}
-		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "static/something.js"}, Host: "", RemoteAddr: ""})
-		mfs.AssertExpectations(t)
-		staticFile.AssertExpectations(t)
 	})
 }
