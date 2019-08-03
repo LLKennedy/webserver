@@ -10,6 +10,19 @@ import (
 )
 
 func TestWrap(t *testing.T) {
+	t.Run("root path", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				assert.Failf(t, "caught panic", "%v\n%s", r, debug.Stack())
+			}
+		}()
+		mfs := fs.New()
+		mfs.On("Open", "/index.html").Return(new(fs.MockFile), nil)
+		newFs := Wrap(mfs, "")
+		file, err := newFs.Open("/")
+		assert.Equal(t, new(fs.MockFile), file)
+		assert.NoError(t, err)
+	})
 	t.Run("no path change", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r != nil {

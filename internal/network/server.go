@@ -104,17 +104,12 @@ func (s *HTTPServer) readScriptHash() (scriptHash string, err error) {
 	}
 	_, err = indexFile.Seek(int64(locs[0]), io.SeekStart)
 	if err != nil {
-		err = fmt.Errorf("could not find navigate to specified location in index file")
+		err = fmt.Errorf("could not navigate to specified location in index file")
 		s.getLogger().Printf("%v\n", err)
 		return
 	}
 	hashBytes := make([]byte, locs[1]-locs[0])
-	_, err = indexFile.Read(hashBytes)
-	if err != nil {
-		err = fmt.Errorf("could not find navigate to specified location in index file")
-		s.getLogger().Printf("%v\n", err)
-		return
-	}
+	indexFile.Read(hashBytes) // We've already read exactly this section of the file, don't bother error-handling the same thing again
 	scriptHash = string(hashBytes)
 	return
 }

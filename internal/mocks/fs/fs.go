@@ -16,11 +16,12 @@ type MockFS struct {
 
 // MockFile is a mock file
 type MockFile struct {
+	OverrideBuffer bool
 	mock.Mock
 	name string
 	data []byte
 	err  error
-	buf  *bytes.Reader
+	Buf  *bytes.Reader
 }
 
 // New creates a new mock file system
@@ -39,7 +40,7 @@ func NewFile(name string, data []byte, openErr, closeErr error, expectClose bool
 	m.name = name
 	m.err = openErr
 	m.data = data
-	m.buf = bytes.NewReader(data)
+	m.Buf = bytes.NewReader(data)
 	if expectClose {
 		m.On("Close").Return(closeErr)
 	}
@@ -92,6 +93,11 @@ func (m *MockFS) String() string {
 
 // Seek seeks on the file
 func (f *MockFile) Seek(offset int64, whence int) (int64, error) {
+	if f.OverrideBuffer {
+		args := f.Called(offset, whence)
+		i, _ := args.Get(0).(int64)
+		return i, args.Error(1)
+	}
 	return f.getBuf().Seek(offset, whence)
 }
 
@@ -148,5 +154,5 @@ func (f *MockFile) getBuf() *bytes.Reader {
 		var buf *bytes.Reader
 		return buf
 	}
-	return f.buf
+	return f.Buf
 }

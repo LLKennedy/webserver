@@ -98,7 +98,52 @@ func TestStart(t *testing.T) {
 
 func TestReadScriptHash(t *testing.T) {
 	t.Run("fail on file open", func(t *testing.T) {
-
+		mfs := fs.New(fs.NewFile("build/index.html", nil, fmt.Errorf("some error"), nil, false))
+		logger := new(mockLogger)
+		s := &HTTPServer{
+			fileSystem: mfs,
+			logger:     logger,
+		}
+		hash, err := s.readScriptHash()
+		assert.Empty(t, hash)
+		assert.EqualError(t, err, "could not open index file: some error")
+	})
+	t.Run("fail on regex", func(t *testing.T) {
+		mfs := fs.New(fs.NewFile("build/index.html", []byte{}, nil, nil, true))
+		logger := new(mockLogger)
+		s := &HTTPServer{
+			fileSystem: mfs,
+			logger:     logger,
+		}
+		hash, err := s.readScriptHash()
+		assert.Empty(t, hash)
+		assert.EqualError(t, err, "could not find script hash in index file")
+	})
+	t.Run("fail on navigation", func(t *testing.T) {
+		indexFile := fs.NewFile("build/index.html", []byte("'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"), nil, nil, true)
+		indexFile.OverrideBuffer = true
+		indexFile.On("Seek", int64(0), 0).Return(int64(0), fmt.Errorf("seek error"))
+		mfs := fs.New(indexFile)
+		logger := new(mockLogger)
+		s := &HTTPServer{
+			fileSystem: mfs,
+			logger:     logger,
+		}
+		hash, err := s.readScriptHash()
+		assert.Empty(t, hash)
+		assert.EqualError(t, err, "could not navigate to specified location in index file")
+	})
+	t.Run("successful extraction", func(t *testing.T) {
+		indexFile := fs.NewFile("build/index.html", []byte("'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"), nil, nil, true)
+		mfs := fs.New(indexFile)
+		logger := new(mockLogger)
+		s := &HTTPServer{
+			fileSystem: mfs,
+			logger:     logger,
+		}
+		hash, err := s.readScriptHash()
+		assert.Equal(t, "'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='", hash)
+		assert.NoError(t, err)
 	})
 }
 
