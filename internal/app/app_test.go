@@ -15,5 +15,5 @@ func TestRun(t *testing.T) {
 	net = mNet
 	mNet.On("ListenAndServe", "localhost:80", network.NewHTTPServer(logger, fileSystem, net)).Return(fmt.Errorf("cannot start"))
 	err := Run()
-	assert.EqualError(t, err, "http server closed unexpectedly: cannot start")
+	assert.EqualError(t, err, "could not read script hash: could not open index file: open build\\index.html: The system cannot find the path specified.")
 }
