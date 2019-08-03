@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime/debug"
 	"testing"
+	"time"
 
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
@@ -315,5 +316,41 @@ func TestServeHTTP(t *testing.T) {
 		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "/"}, Host: "", RemoteAddr: ""})
 		mfs.AssertExpectations(t)
 		rootFile.AssertExpectations(t)
+	})
+	t.Run("js file", func(t *testing.T) {
+		defer catchPanic(t)
+		scriptFile := fs.NewFile("/something.js", []byte(""), nil, nil, true)
+		scriptFile.On("IsDir").Return(false)
+		scriptFile.On("Name").Return("something.js")
+		scriptFile.On("ModTime").Return(time.Now())
+		scriptFile.On("Size").Return(int64(len("")))
+		scriptFile.On("IsDir").Return(false)
+		mfs := fs.New(scriptFile)
+		mfs.On("Stat", "/something.js").Return(scriptFile, nil)
+		s := &HTTPServer{
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
+			logger:     new(mockLogger),
+		}
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{RequestURI: "something.js", URL: &url.URL{Path: "/something.js"}, Host: "", RemoteAddr: ""})
+		mfs.AssertExpectations(t)
+		scriptFile.AssertExpectations(t)
+	})
+	t.Run("ts file", func(t *testing.T) {
+		defer catchPanic(t)
+		scriptFile := fs.NewFile("/something.ts", []byte(""), nil, nil, true)
+		scriptFile.On("IsDir").Return(false)
+		scriptFile.On("Name").Return("something.ts")
+		scriptFile.On("ModTime").Return(time.Now())
+		scriptFile.On("Size").Return(int64(len("")))
+		scriptFile.On("IsDir").Return(false)
+		mfs := fs.New(scriptFile)
+		mfs.On("Stat", "/something.ts").Return(scriptFile, nil)
+		s := &HTTPServer{
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
+			logger:     new(mockLogger),
+		}
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{RequestURI: "something.ts", URL: &url.URL{Path: "/something.ts"}, Host: "", RemoteAddr: ""})
+		mfs.AssertExpectations(t)
+		scriptFile.AssertExpectations(t)
 	})
 }

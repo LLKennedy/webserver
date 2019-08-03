@@ -12,6 +12,9 @@ import (
 	"golang.org/x/tools/godoc/vfs"
 )
 
+var jsFile = regexp.MustCompile(`\.js$`)
+var tsFile = regexp.MustCompile(`\.ts$`)
+
 // HTTPServer is an HTTP Server
 type HTTPServer struct {
 	Address    string
@@ -77,6 +80,10 @@ func (s *HTTPServer) Start() (err error) {
 func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	protocol := "http"
 	setHeaders(writer, s.getAddress(), protocol, s.getScriptHash())
+	uri := request.RequestURI
+	if jsFile.MatchString(uri) || tsFile.MatchString(uri) {
+		writer.Header().Set("Content-Type", "application/javascript")
+	}
 	s.getFs().ServeHTTP(writer, request)
 }
 
