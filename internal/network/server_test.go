@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"testing"
 
+	"github.com/LLKennedy/webserver/internal/mocks/fs"
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
 	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
 	"github.com/LLKennedy/webserver/internal/utility/filemask"
@@ -22,33 +23,68 @@ func TestNewHTTPServer(t *testing.T) {
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
-	assert.Equal(t, &HTTPServer{logger: logger, Address: "localhost", Port: "80", layer: layer, fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))), staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static")))}, s)
+	assert.Equal(t, &HTTPServer{
+		logger:       logger,
+		Address:      "localhost",
+		Port:         "80",
+		layer:        layer,
+		fileSystem:   mfs,
+		fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
+		staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
+	}, s)
 	assert.Equal(t, "", logger.GetContents())
+}
+
+func catchPanic(t *testing.T) {
+	if r := recover(); r != nil {
+		assert.Failf(t, "caught panic", "%v\n%s", r, debug.Stack())
+	}
 }
 
 func TestStart(t *testing.T) {
 	t.Run("no error", func(t *testing.T) {
-		mfs := vfs.NewNameSpace()
+		defer catchPanic(t)
+		mfs := fs.New(fs.NewFile("build/index.html", []byte("'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"), nil, nil, true))
 		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
 			logger:       logger,
 			layer:        layer,
+			fileSystem:   mfs,
 			fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 			staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
 		}
 		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(nil)
 		err := s.Start()
 		assert.NoError(t, err)
-		assert.Equal(t, "<nil>\n", logger.GetContents())
+		assert.Equal(t, "", logger.GetContents())
 	})
-	t.Run("error", func(t *testing.T) {
-		mfs := vfs.NewNameSpace()
+	t.Run("error getting script hash", func(t *testing.T) {
+		defer catchPanic(t)
+		mfs := fs.New(fs.NewFile("build/index.html", nil, fmt.Errorf("can't open file"), nil, true))
 		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
 			logger:       logger,
 			layer:        layer,
+			fileSystem:   mfs,
+			fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
+			staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
+		}
+		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(fmt.Errorf("some network error"))
+		err := s.Start()
+		assert.EqualError(t, err, "could not read script hash: could not open index file: can't open file")
+		assert.Equal(t, "could not open index file: can't open file\ncould not read script hash: could not open index file: can't open file\n", logger.GetContents())
+	})
+	t.Run("error starting HTTP server", func(t *testing.T) {
+		defer catchPanic(t)
+		mfs := fs.New(fs.NewFile("build/index.html", []byte("'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"), nil, nil, true))
+		layer := new(mocknetwork.Layer)
+		logger := mocklog.New()
+		s := &HTTPServer{
+			logger:       logger,
+			layer:        layer,
+			fileSystem:   mfs,
 			fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 			staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build/static"))),
 		}
@@ -61,12 +97,14 @@ func TestStart(t *testing.T) {
 
 func TestGetFs(t *testing.T) {
 	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		var s *HTTPServer
 		ffs, sfs := s.getFs()
 		assert.Nil(t, ffs)
 		assert.Nil(t, sfs)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		mfs := new(mockHandler)
 		s := &HTTPServer{
 			fileServer:   mfs,
@@ -80,11 +118,13 @@ func TestGetFs(t *testing.T) {
 
 func TestGetLogger(t *testing.T) {
 	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		var s *HTTPServer
 		logger := s.getLogger()
 		assert.Nil(t, logger)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		mlogger := log.New(os.Stdout, "test", log.Flags())
 		s := &HTTPServer{
 			logger: mlogger,
@@ -96,11 +136,13 @@ func TestGetLogger(t *testing.T) {
 
 func TestGetLayer(t *testing.T) {
 	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		var s *HTTPServer
 		layer := s.getLayer()
 		assert.Nil(t, layer)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		mlayer := new(mocknetwork.Layer)
 		s := &HTTPServer{
 			layer: mlayer,
@@ -112,11 +154,13 @@ func TestGetLayer(t *testing.T) {
 
 func TestGetAddress(t *testing.T) {
 	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		var s *HTTPServer
 		layer := s.getAddress()
 		assert.Empty(t, layer)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
 		inaddr := "localhost"
 		s := &HTTPServer{
 			Address: inaddr,
@@ -159,17 +203,13 @@ func (m *mockLogger) Fatalf(format string, v ...interface{}) {
 }
 
 func TestServeHTTP(t *testing.T) {
+	defer catchPanic(t)
 	mfs := vfs.NewNameSpace()
 	s := &HTTPServer{
 		fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
 		logger:     new(mockLogger),
 	}
 	testFunc := func() {
-		defer func() {
-			if r := recover(); r != nil {
-				assert.Failf(t, "caught panic", "%v\n%s", r, debug.Stack())
-			}
-		}()
 		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{}, Host: "", RemoteAddr: ""})
 	}
 	assert.NotPanics(t, testFunc)

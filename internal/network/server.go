@@ -95,6 +95,7 @@ func (s *HTTPServer) readScriptHash() (scriptHash string, err error) {
 		s.getLogger().Printf("%v\n", err)
 		return
 	}
+	defer indexFile.Close()
 	locs := hash.FindReaderIndex(&runeVFS{file: indexFile})
 	if locs == nil || len(locs) != 2 {
 		err = fmt.Errorf("could not find script hash in index file")
