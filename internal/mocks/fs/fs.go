@@ -3,6 +3,7 @@ package fs
 import (
 	"bytes"
 	"os"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/tools/godoc/vfs"
@@ -43,6 +44,7 @@ func NewFile(name string, data []byte, openErr, closeErr error, expectClose bool
 		m.On("Close").Return(closeErr)
 	}
 	_ = vfs.ReadSeekCloser(m)
+	_ = os.FileInfo(m)
 	return m
 }
 
@@ -102,6 +104,43 @@ func (f *MockFile) Read(p []byte) (n int, err error) {
 func (f *MockFile) Close() error {
 	args := f.Called()
 	return args.Error(0)
+}
+
+// Name gets the name of the file
+func (f *MockFile) Name() string {
+	args := f.Called()
+	return args.String(0)
+}
+
+// Size gets the size of the file
+func (f *MockFile) Size() int64 {
+	args := f.Called()
+	size, _ := args.Get(0).(int64)
+	return size
+}
+
+// Mode gets the mode of the file
+func (f *MockFile) Mode() os.FileMode {
+	args := f.Called()
+	mode, _ := args.Get(0).(os.FileMode)
+	return mode
+}
+
+// ModTime gets the mod time of the file
+func (f *MockFile) ModTime() time.Time {
+	args := f.Called()
+	t, _ := args.Get(0).(time.Time)
+	return t
+}
+
+// IsDir returns whether the file is a directory
+func (f *MockFile) IsDir() bool {
+	return f.Called().Bool(0)
+}
+
+// Sys gets the system specific implementation of the file info
+func (f *MockFile) Sys() interface{} {
+	return f.Called().Get(0)
 }
 
 func (f *MockFile) getBuf() *bytes.Reader {

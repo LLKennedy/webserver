@@ -19,7 +19,7 @@ import (
 )
 
 func TestNewHTTPServer(t *testing.T) {
-	mfs := vfs.NewNameSpace()
+	mfs := fs.New()
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
@@ -170,6 +170,61 @@ func TestGetAddress(t *testing.T) {
 	})
 }
 
+func TestGetPort(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		var s *HTTPServer
+		layer := s.getPort()
+		assert.Empty(t, layer)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		inaddr := "12"
+		s := &HTTPServer{
+			Port: inaddr,
+		}
+		outaddr := s.getPort()
+		assert.Equal(t, inaddr, outaddr)
+	})
+}
+
+func TestGetScriptHash(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		var s *HTTPServer
+		layer := s.getScriptHash()
+		assert.Empty(t, layer)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		inaddr := "12"
+		s := &HTTPServer{
+			scriptHash: inaddr,
+		}
+		outaddr := s.getScriptHash()
+		assert.Equal(t, inaddr, outaddr)
+	})
+}
+
+func TestGetFileSystem(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		defaultFs := vfs.OS(".")
+		var s *HTTPServer
+		rfs := s.getFileSystem()
+		assert.Equal(t, defaultFs, rfs)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		mfs := fs.New()
+		s := &HTTPServer{
+			fileSystem: mfs,
+		}
+		rfs := s.getFileSystem()
+		assert.Equal(t, mfs, rfs)
+	})
+}
+
 type mockResponseWriter struct{}
 
 func (m *mockResponseWriter) Header() http.Header {
@@ -204,13 +259,15 @@ func (m *mockLogger) Fatalf(format string, v ...interface{}) {
 
 func TestServeHTTP(t *testing.T) {
 	defer catchPanic(t)
-	mfs := vfs.NewNameSpace()
+	rootFile := fs.NewFile("/", []byte(""), nil, nil, true)
+	rootFile.On("IsDir").Return(false)
+	mfs := fs.New(rootFile)
+	mfs.On("Stat", "/").Return(rootFile, nil)
 	s := &HTTPServer{
 		fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
 		logger:     new(mockLogger),
 	}
-	testFunc := func() {
-		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{}, Host: "", RemoteAddr: ""})
-	}
-	assert.NotPanics(t, testFunc)
+	s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "/"}, Host: "", RemoteAddr: ""})
+	mfs.AssertExpectations(t)
+	rootFile.AssertExpectations(t)
 }
