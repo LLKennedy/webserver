@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime/debug"
 	"testing"
+	"time"
 
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
@@ -92,6 +93,12 @@ func TestStart(t *testing.T) {
 		err := s.Start()
 		assert.EqualError(t, err, "http server closed unexpectedly: some network error")
 		assert.Equal(t, "http server closed unexpectedly: some network error\n", logger.GetContents())
+	})
+}
+
+func TestReadScriptHash(t *testing.T) {
+	t.Run("fail on file open", func(t *testing.T) {
+
 	})
 }
 
@@ -258,16 +265,35 @@ func (m *mockLogger) Fatalf(format string, v ...interface{}) {
 }
 
 func TestServeHTTP(t *testing.T) {
-	defer catchPanic(t)
-	rootFile := fs.NewFile("/", []byte(""), nil, nil, true)
-	rootFile.On("IsDir").Return(false)
-	mfs := fs.New(rootFile)
-	mfs.On("Stat", "/").Return(rootFile, nil)
-	s := &HTTPServer{
-		fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
-		logger:     new(mockLogger),
-	}
-	s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "/"}, Host: "", RemoteAddr: ""})
-	mfs.AssertExpectations(t)
-	rootFile.AssertExpectations(t)
+	t.Run("root file", func(t *testing.T) {
+		defer catchPanic(t)
+		rootFile := fs.NewFile("/", []byte(""), nil, nil, true)
+		rootFile.On("IsDir").Return(false)
+		mfs := fs.New(rootFile)
+		mfs.On("Stat", "/").Return(rootFile, nil)
+		s := &HTTPServer{
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
+			logger:     new(mockLogger),
+		}
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "/"}, Host: "", RemoteAddr: ""})
+		mfs.AssertExpectations(t)
+		rootFile.AssertExpectations(t)
+	})
+	t.Run("static file", func(t *testing.T) {
+		defer catchPanic(t)
+		staticFile := fs.NewFile("/static/something.js", []byte(""), nil, nil, true)
+		staticFile.On("IsDir").Return(false)
+		staticFile.On("Name").Return("something.js")
+		staticFile.On("ModTime").Return(time.Now())
+		staticFile.On("Size").Return(int64(len("")))
+		mfs := fs.New(staticFile)
+		mfs.On("Stat", "/static/something.js").Return(staticFile, nil)
+		s := &HTTPServer{
+			staticServer: http.FileServer(mocknetwork.NewDir(mfs)),
+			logger:       new(mockLogger),
+		}
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "static/something.js"}, Host: "", RemoteAddr: ""})
+		mfs.AssertExpectations(t)
+		staticFile.AssertExpectations(t)
+	})
 }
