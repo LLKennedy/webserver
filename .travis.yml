@@ -48,7 +48,7 @@ jobs:
         - go test ./... -coverprofile=c.out
         - go tool cover -func=c.out > coverage.txt
         - coverage_percent=$(grep -Eo "total:.*\(statements\).*[0-9.]+" coverage.txt | grep -Eo "[0-9]+\.[0-9]+" | bc) # I am not good at bash
-        - if [ $(bc -l <<< "$coverage_percent < $mandatory_coverage") -eq 1 ]; then echo "Coverage percentage was ${coverage_percent}, must be at least ${mandatory_coverage}!"; exit 1; fi
+        - if [ $(bc -l <<< "$coverage_percent < $mandatory_coverage") -eq 1 ]; then echo "Coverage percentage was ${coverage_percent}%, must be at least ${mandatory_coverage}%!"; exit 1; else echo "Coverage percentage was ${coverage_percent}%, mandatory coverage is ${mandatory_coverage}%"; fi
       after_script:
         - $GOPATH/bin/goveralls -coverprofile=c.out -service=travis-ci
         - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
