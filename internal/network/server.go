@@ -2,7 +2,9 @@ package network
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"regexp"
 
 	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
 	"github.com/LLKennedy/webserver/internal/utility/filemask"
@@ -14,8 +16,10 @@ import (
 type HTTPServer struct {
 	Address      string
 	Port         string
+	scriptHash   string
 	layer        Layer
 	logger       logs.Logger
+	fileSystem   vfs.FileSystem
 	fileServer   http.Handler
 	staticServer http.Handler
 }
@@ -34,43 +38,89 @@ func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *
 		Address:      "localhost",
 		Port:         "80",
 		layer:        layer,
+		fileSystem:   fileSystem,
 		fileServer:   http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
 		staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/static"))),
 	}
 	return server
 }
 
+type runeVFS struct {
+	file vfs.ReadSeekCloser
+}
+
+func (rv *runeVFS) ReadRune() (r rune, size int, err error) {
+	next := make([]byte, 1)
+	size, err = rv.file.Read(next)
+	if err == nil {
+		r = rune(next[0])
+	}
+	return
+}
+
 // Start starts the server
-func (s *HTTPServer) Start() error {
-	err := s.getLayer().ListenAndServe(fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s)
+func (s *HTTPServer) Start() (err error) {
+	s.scriptHash, err = s.readScriptHash()
+	if err != nil {
+		err = fmt.Errorf("could not read script hash: %v", err)
+		s.getLogger().Printf("%v\n", err)
+		return err
+	}
+	err = s.getLayer().ListenAndServe(fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s)
 	if err != nil {
 		err = fmt.Errorf("http server closed unexpectedly: %v", err)
+		s.getLogger().Printf("%v\n", err)
 	}
-	s.getLogger().Printf("%v\n", err)
 	return err
 }
 
 // ServeHTTP serves HTTP
 func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	addr := s.getAddress()
 	protocol := "http"
-	s.getLogger().Printf("request: host=%s, remoteAddr=%s", request.Host, request.RemoteAddr)
-	setHeaders(writer, addr, protocol)
-	// writer.Header().Set("Feature-Policy", "*")
-	head, remainder := getPathNode(request.URL.Path)
+	setHeaders(writer, s.getAddress(), protocol, s.getScriptHash())
+	head, _ := getPathNode(request.URL.Path)
 	fileServer, staticServer := s.getFs()
 	if head == "static" {
-		s.getLogger().Printf("static path: %s", remainder)
 		staticServer.ServeHTTP(writer, request)
 	} else {
-		s.getLogger().Printf("other path: %s", remainder)
 		fileServer.ServeHTTP(writer, request)
 	}
 }
 
-func setHeaders(writer http.ResponseWriter, addr, protocol string) {
+func (s *HTTPServer) readScriptHash() (scriptHash string, err error) {
+	hash := regexp.MustCompile(`'sha256-[a-zA-Z0-9+/=]{44}'`)
+	indexFile, err := s.getFileSystem().Open("build/index.html")
+	if err != nil {
+		err = fmt.Errorf("could not open index file: %v", err)
+		s.getLogger().Printf("%v\n", err)
+		return
+	}
+	locs := hash.FindReaderIndex(&runeVFS{file: indexFile})
+	if locs == nil || len(locs) != 2 {
+		err = fmt.Errorf("could not find script hash in index file")
+		s.getLogger().Printf("%v\n", err)
+		return
+	}
+	_, err = indexFile.Seek(int64(locs[0]), io.SeekStart)
+	if err != nil {
+		err = fmt.Errorf("could not find navigate to specified location in index file")
+		s.getLogger().Printf("%v\n", err)
+		return
+	}
+	hashBytes := make([]byte, locs[1]-locs[0])
+	_, err = indexFile.Read(hashBytes)
+	if err != nil {
+		err = fmt.Errorf("could not find navigate to specified location in index file")
+		s.getLogger().Printf("%v\n", err)
+		return
+	}
+	scriptHash = string(hashBytes)
+	return
+}
+
+func setHeaders(writer http.ResponseWriter, addr, protocol, scriptHash string) {
 	writer.Header().Set("Strict-Transport-Security", fmt.Sprintf("max-age=31536000; includeSubDomains"))
-	writer.Header().Set("Content-Security-Policy", fmt.Sprintf("default-src 'self'; style-src 'self' 'nonce-yhbSSLk5nTP4sgETaQx5Lg=='; script-src 'self' 'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"))
+	writer.Header().Add("Content-Security-Policy", fmt.Sprintf("default-src 'self' %s", scriptHash))
 	writer.Header().Set("X-Frame-Options", fmt.Sprintf("SAMEORIGIN"))
 	writer.Header().Set("X-Content-Type-Options", fmt.Sprintf("nosniff"))
 	writer.Header().Set("X-XSS-Protection", fmt.Sprintf("1; mode=block; report=%s://%s/api/security/report", protocol, addr))
@@ -111,4 +161,18 @@ func (s *HTTPServer) getPort() string {
 		return ""
 	}
 	return s.Port
+}
+
+func (s *HTTPServer) getFileSystem() vfs.FileSystem {
+	if s == nil {
+		return vfs.OS(".")
+	}
+	return s.fileSystem
+}
+
+func (s *HTTPServer) getScriptHash() string {
+	if s == nil {
+		return ""
+	}
+	return s.scriptHash
 }
