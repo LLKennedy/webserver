@@ -11,7 +11,8 @@ type Options struct {
 
 // DefaultOptions are the default options
 func DefaultOptions() Options {
-	return Options{Address: "localhost",
+	return Options{
+		Address:      "localhost",
 		Port:         443,
 		InsecurePort: 80,
 		KeyFile:      defaultKeyFile,
