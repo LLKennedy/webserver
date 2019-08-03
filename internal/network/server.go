@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
 
 	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
+	"github.com/LLKennedy/webserver/internal/utility/config"
 	"github.com/LLKennedy/webserver/internal/utility/filemask"
 	"github.com/LLKennedy/webserver/internal/utility/logs"
 	"golang.org/x/tools/godoc/vfs"
@@ -17,6 +19,7 @@ var tsFile = regexp.MustCompile(`\.ts$`)
 
 // HTTPServer is an HTTP Server
 type HTTPServer struct {
+	Options    config.Options
 	Address    string
 	Port       string
 	scriptHash string
@@ -35,14 +38,20 @@ type Layer interface {
 
 // NewHTTPServer creates a new HTTP Server
 func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
+	options, err := config.Load(fileSystem, os.Args)
 	server := &HTTPServer{
+		Options:    options,
 		logger:     logger,
 		Address:    "localhost",
-		Port:       "80",
+		Port:       fmt.Sprintf("%d", options.Port),
 		layer:      layer,
 		fileSystem: fileSystem,
 		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
 		// staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/static"))),
+	}
+	if err != nil {
+		server.getLogger().Printf("problem getting config: %v", err)
+		server.getLogger().Printf("app data: %s", os.Getenv("APPDATA"))
 	}
 	return server
 }

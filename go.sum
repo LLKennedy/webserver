@@ -1,5 +1,7 @@
 github.com/LLKennedy/goconfig v1.0.0-alpha.1 h1:sSl+0/jSeaMXR60JNYZUB5nkK1t3UJ9c0BXkq6R/nLM=
 github.com/LLKennedy/goconfig v1.0.0-alpha.1/go.mod h1:ukybpML6oVUkswQd6AWzualcc7AZ0NyzB3IZtiWGBqQ=
+github.com/LLKennedy/goconfig v1.0.0-alpha.2 h1:El2oQDH4whZNFPyDGD489pzVO9S3Oo/t64tQ23btCrw=
+github.com/LLKennedy/goconfig v1.0.0-alpha.2/go.mod h1:ukybpML6oVUkswQd6AWzualcc7AZ0NyzB3IZtiWGBqQ=
 github.com/LLKennedy/webserver v0.0.0-20190722104802-3a27267ccdcf h1:KmX2Cumdg1GuBvkeixR05VNHmvglvcsCVUgJj69Kww4=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
