@@ -1,6 +1,7 @@
 package mocknetwork
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/stretchr/testify/mock"
@@ -9,6 +10,12 @@ import (
 // Layer is a mock of network.Layer
 type Layer struct {
 	mock.Mock
+}
+
+// Shutdown gracefully closes all non-hijacked connections
+func (m *Layer) Shutdown(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 // ListenAndServe listens and serves HTTP

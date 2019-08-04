@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,7 +22,8 @@ var tsFile = regexp.MustCompile(`\.ts$`)
 type HTTPServer struct {
 	Options        config.Options
 	scriptHash     string
-	layer          Layer
+	secure         Layer
+	insecure       Layer
 	logger         logs.Logger
 	fileSystem     vfs.FileSystem
 	fileServer     http.Handler
@@ -35,18 +37,20 @@ type insecureServer struct {
 
 // Layer is a network on which to listen and serve HTTP
 type Layer interface {
+	Shutdown(ctx context.Context) error
 	ListenAndServe(addr string, handler http.Handler) error
 	ListenAndServeTLS(addr string, certFile string, keyFile string, handler http.Handler) error
 	FileServer(http.FileSystem) http.Handler
 }
 
 // NewHTTPServer creates a new HTTP Server
-func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *HTTPServer {
+func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, secure, insecure Layer) *HTTPServer {
 	options, err := config.Load(fileSystem, os.Args)
 	server := &HTTPServer{
 		Options:    options,
 		logger:     logger,
-		layer:      layer,
+		secure:     secure,
+		insecure:   insecure,
 		fileSystem: fileSystem,
 		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
 	}
@@ -78,8 +82,8 @@ func (s *HTTPServer) Start() (err error) {
 		return err
 	}
 	s.insecureServer = &insecureServer{Address: s.getOptions().Address, scriptHash: s.getScriptHash()}
-	go s.getLayer().ListenAndServe(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), s.insecureServer)
-	err = s.getLayer().ListenAndServeTLS(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s)
+	go s.getInsecure().ListenAndServe(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), s.insecureServer)
+	err = s.getSecure().ListenAndServeTLS(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s)
 	if err != nil {
 		err = fmt.Errorf("http server closed unexpectedly: %v", err)
 		s.getLogger().Printf("%v\n", err)
@@ -165,11 +169,18 @@ func (s *HTTPServer) getFs() http.Handler {
 	return s.fileServer
 }
 
-func (s *HTTPServer) getLayer() Layer {
+func (s *HTTPServer) getSecure() Layer {
 	if s == nil {
-		return nil
+		return &HTTP{}
 	}
-	return s.layer
+	return s.secure
+}
+
+func (s *HTTPServer) getInsecure() Layer {
+	if s == nil {
+		return &HTTP{}
+	}
+	return s.insecure
 }
 
 func (s *HTTPServer) getFileSystem() vfs.FileSystem {

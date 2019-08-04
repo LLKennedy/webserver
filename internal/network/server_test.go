@@ -24,13 +24,15 @@ import (
 func TestNewHTTPServer(t *testing.T) {
 	mfs := fs.New()
 	mfs.On("Open", goconfig.DefaultConfigLocation("webserver")).Return(fs.NewFile("", []byte("{}"), nil, nil, true), nil)
-	layer := HTTP{}
+	secure := &HTTP{}
+	insecure := &HTTP{}
 	logger := mocklog.New()
-	s := NewHTTPServer(logger, mfs, layer)
+	s := NewHTTPServer(logger, mfs, secure, insecure)
 	assert.Equal(t, &HTTPServer{
 		Options:    config.DefaultOptions(),
 		logger:     logger,
-		layer:      layer,
+		secure:     secure,
+		insecure:   insecure,
 		fileSystem: mfs,
 		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 	}, s)
@@ -48,56 +50,66 @@ func TestStart(t *testing.T) {
 		defer catchPanic(t)
 		testHash := "'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"
 		mfs := fs.New(fs.NewFile("build/index.html", []byte(testHash), nil, nil, true))
-		layer := new(mocknetwork.Layer)
+		secure := new(mocknetwork.Layer)
+		insecure := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
 			Options:    config.DefaultOptions(),
 			logger:     logger,
-			layer:      layer,
+			secure:     secure,
+			insecure:   insecure,
 			fileSystem: mfs,
 			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
 		expectedInsecure := &insecureServer{Address: config.DefaultOptions().Address, scriptHash: testHash}
-		layer.On("ListenAndServe", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), expectedInsecure).Return(nil)
-		layer.On("ListenAndServeTLS", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s).Return(nil)
+		insecure.On("ListenAndServe", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), expectedInsecure).Return(nil)
+		secure.On("ListenAndServeTLS", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s).Return(nil)
 		err := s.Start()
 		assert.NoError(t, err)
 		assert.Equal(t, "", logger.GetContents())
+		secure.AssertExpectations(t)
 	})
 	t.Run("error getting script hash", func(t *testing.T) {
 		defer catchPanic(t)
 		mfs := fs.New(fs.NewFile("build/index.html", nil, fmt.Errorf("can't open file"), nil, true))
-		layer := new(mocknetwork.Layer)
+		secure := new(mocknetwork.Layer)
+		insecure := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
+			Options:    config.DefaultOptions(),
 			logger:     logger,
-			layer:      layer,
+			secure:     secure,
+			insecure:   insecure,
 			fileSystem: mfs,
 			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
 		err := s.Start()
 		assert.EqualError(t, err, "could not read script hash: could not open index file: can't open file")
 		assert.Equal(t, "could not open index file: can't open file\ncould not read script hash: could not open index file: can't open file\n", logger.GetContents())
-		layer.AssertExpectations(t)
+		secure.AssertExpectations(t)
 	})
 	t.Run("error starting HTTP server", func(t *testing.T) {
 		defer catchPanic(t)
 		testHash := "'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"
 		mfs := fs.New(fs.NewFile("build/index.html", []byte(testHash), nil, nil, true))
-		layer := new(mocknetwork.Layer)
+		secure := new(mocknetwork.Layer)
+		insecure := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
+			Options:    config.DefaultOptions(),
 			logger:     logger,
-			layer:      layer,
+			secure:     secure,
+			insecure:   insecure,
 			fileSystem: mfs,
 			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
 		expectedInsecure := &insecureServer{Address: config.DefaultOptions().Address, scriptHash: testHash}
-		layer.On("ListenAndServe", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), expectedInsecure).Return(nil)
-		layer.On("ListenAndServeTLS", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s).Return(fmt.Errorf("some network error"))
+		insecure.On("ListenAndServe", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), expectedInsecure).Return(nil)
+		secure.On("ListenAndServeTLS", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
 		assert.EqualError(t, err, "http server closed unexpectedly: some network error")
 		assert.Equal(t, "http server closed unexpectedly: some network error\n", logger.GetContents())
+		secure.AssertExpectations(t)
 	})
 }
 
@@ -188,20 +200,38 @@ func TestGetLogger(t *testing.T) {
 	})
 }
 
-func TestGetLayer(t *testing.T) {
+func TestGetSecure(t *testing.T) {
 	t.Run("nil server", func(t *testing.T) {
 		defer catchPanic(t)
 		var s *HTTPServer
-		layer := s.getLayer()
-		assert.Nil(t, layer)
+		layer := s.getSecure()
+		assert.Equal(t, &HTTP{}, layer)
 	})
 	t.Run("non-nil server", func(t *testing.T) {
 		defer catchPanic(t)
 		mlayer := new(mocknetwork.Layer)
 		s := &HTTPServer{
-			layer: mlayer,
+			secure: mlayer,
 		}
-		layer := s.getLayer()
+		layer := s.getSecure()
+		assert.Equal(t, mlayer, layer)
+	})
+}
+
+func TestGetInsecure(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		var s *HTTPServer
+		layer := s.getInsecure()
+		assert.Equal(t, &HTTP{}, layer)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		mlayer := new(mocknetwork.Layer)
+		s := &HTTPServer{
+			insecure: mlayer,
+		}
+		layer := s.getInsecure()
 		assert.Equal(t, mlayer, layer)
 	})
 }

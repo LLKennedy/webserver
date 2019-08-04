@@ -12,7 +12,8 @@ import (
 var (
 	logger     logs.Logger    = log.New(os.Stdout, "webserver ", log.Flags())
 	fileSystem vfs.FileSystem = vfs.OS(".")
-	net        network.Layer  = network.HTTP{}
+	secure     network.Layer  = &network.HTTP{}
+	insecure   network.Layer  = &network.HTTP{}
 )
 
 // App is the application
@@ -22,14 +23,14 @@ type App struct {
 
 // Run creates, configures and starts the app
 func Run() error {
-	a := New(logger, fileSystem, net)
+	a := New(logger, fileSystem, secure, insecure)
 	return a.Start()
 }
 
 // New creates a new app struct
-func New(lg logs.Logger, fs vfs.FileSystem, net network.Layer) *App {
+func New(lg logs.Logger, fs vfs.FileSystem, secure, insecure network.Layer) *App {
 	a := &App{
-		HTTPServer: network.NewHTTPServer(lg, fs, net),
+		HTTPServer: network.NewHTTPServer(lg, fs, secure, insecure),
 	}
 	return a
 }
