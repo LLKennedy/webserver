@@ -14,20 +14,22 @@ import (
 	"github.com/LLKennedy/webserver/internal/mocks/fs"
 	"github.com/LLKennedy/webserver/internal/mocks/mocklog"
 	"github.com/LLKennedy/webserver/internal/mocks/mocknetwork"
+	"github.com/LLKennedy/webserver/internal/utility/config"
 	"github.com/LLKennedy/webserver/internal/utility/filemask"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/tools/godoc/vfs"
 )
 
 func TestNewHTTPServer(t *testing.T) {
 	mfs := fs.New()
+	mfs.On("Open", mock.Anything).Return(fs.NewFile("", []byte("{}"), nil, nil, true), nil)
 	layer := HTTP{}
 	logger := mocklog.New()
 	s := NewHTTPServer(logger, mfs, layer)
 	assert.Equal(t, &HTTPServer{
+		Options:    config.DefaultOptions(),
 		logger:     logger,
-		Address:    "localhost",
-		Port:       "80",
 		layer:      layer,
 		fileSystem: mfs,
 		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
@@ -44,16 +46,19 @@ func catchPanic(t *testing.T) {
 func TestStart(t *testing.T) {
 	t.Run("no error", func(t *testing.T) {
 		defer catchPanic(t)
-		mfs := fs.New(fs.NewFile("build/index.html", []byte("'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"), nil, nil, true))
+		testHash := "'sha256-5As4+3YpY62+l38PsxCEkjB1R4YtyktBtRScTJ3fyLU='"
+		mfs := fs.New(fs.NewFile("build/index.html", []byte(testHash), nil, nil, true))
 		layer := new(mocknetwork.Layer)
 		logger := mocklog.New()
 		s := &HTTPServer{
+			Options:    config.DefaultOptions(),
 			logger:     logger,
 			layer:      layer,
 			fileSystem: mfs,
 			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
-		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(nil)
+		expectedInsecure := &insecureServer{Address: config.DefaultOptions().Address, scriptHash: testHash}
+		layer.On("ListenAndServe", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), expectedInsecure).Return(nil)
 		err := s.Start()
 		assert.NoError(t, err)
 		assert.Equal(t, "", logger.GetContents())
@@ -69,7 +74,7 @@ func TestStart(t *testing.T) {
 			fileSystem: mfs,
 			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
-		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(fmt.Errorf("some network error"))
+		layer.On("ListenAndServe", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
 		assert.EqualError(t, err, "could not read script hash: could not open index file: can't open file")
 		assert.Equal(t, "could not open index file: can't open file\ncould not read script hash: could not open index file: can't open file\n", logger.GetContents())
@@ -85,7 +90,7 @@ func TestStart(t *testing.T) {
 			fileSystem: mfs,
 			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
 		}
-		layer.On("ListenAndServe", fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s).Return(fmt.Errorf("some network error"))
+		layer.On("ListenAndServe", fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s).Return(fmt.Errorf("some network error"))
 		err := s.Start()
 		assert.EqualError(t, err, "http server closed unexpectedly: some network error")
 		assert.Equal(t, "http server closed unexpectedly: some network error\n", logger.GetContents())
@@ -194,42 +199,6 @@ func TestGetLayer(t *testing.T) {
 		}
 		layer := s.getLayer()
 		assert.Equal(t, mlayer, layer)
-	})
-}
-
-func TestGetAddress(t *testing.T) {
-	t.Run("nil server", func(t *testing.T) {
-		defer catchPanic(t)
-		var s *HTTPServer
-		layer := s.getAddress()
-		assert.Empty(t, layer)
-	})
-	t.Run("non-nil server", func(t *testing.T) {
-		defer catchPanic(t)
-		inaddr := "localhost"
-		s := &HTTPServer{
-			Address: inaddr,
-		}
-		outaddr := s.getAddress()
-		assert.Equal(t, inaddr, outaddr)
-	})
-}
-
-func TestGetPort(t *testing.T) {
-	t.Run("nil server", func(t *testing.T) {
-		defer catchPanic(t)
-		var s *HTTPServer
-		layer := s.getPort()
-		assert.Empty(t, layer)
-	})
-	t.Run("non-nil server", func(t *testing.T) {
-		defer catchPanic(t)
-		inaddr := "12"
-		s := &HTTPServer{
-			Port: inaddr,
-		}
-		outaddr := s.getPort()
-		assert.Equal(t, inaddr, outaddr)
 	})
 }
 

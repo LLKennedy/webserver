@@ -19,14 +19,18 @@ var tsFile = regexp.MustCompile(`\.ts$`)
 
 // HTTPServer is an HTTP Server
 type HTTPServer struct {
-	Options    config.Options
+	Options        config.Options
+	scriptHash     string
+	layer          Layer
+	logger         logs.Logger
+	fileSystem     vfs.FileSystem
+	fileServer     http.Handler
+	insecureServer *insecureServer
+}
+
+type insecureServer struct {
 	Address    string
-	Port       string
 	scriptHash string
-	layer      Layer
-	logger     logs.Logger
-	fileSystem vfs.FileSystem
-	fileServer http.Handler
 }
 
 // Layer is a network on which to listen and serve HTTP
@@ -42,16 +46,12 @@ func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, layer Layer) *
 	server := &HTTPServer{
 		Options:    options,
 		logger:     logger,
-		Address:    "localhost",
-		Port:       fmt.Sprintf("%d", options.Port),
 		layer:      layer,
 		fileSystem: fileSystem,
 		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
-		// staticServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build/static"))),
 	}
 	if err != nil {
 		server.getLogger().Printf("problem getting config: %v", err)
-		server.getLogger().Printf("app data: %s", os.Getenv("APPDATA"))
 	}
 	return server
 }
@@ -77,7 +77,9 @@ func (s *HTTPServer) Start() (err error) {
 		s.getLogger().Printf("%v\n", err)
 		return err
 	}
-	err = s.getLayer().ListenAndServe(fmt.Sprintf("%s:%s", s.getAddress(), s.getPort()), s)
+	s.insecureServer = &insecureServer{Address: s.getOptions().Address, scriptHash: s.getScriptHash()}
+	go s.getLayer().ListenAndServe(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), s.insecureServer)
+	err = s.getLayer().ListenAndServeTLS(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s)
 	if err != nil {
 		err = fmt.Errorf("http server closed unexpectedly: %v", err)
 		s.getLogger().Printf("%v\n", err)
@@ -87,13 +89,29 @@ func (s *HTTPServer) Start() (err error) {
 
 // ServeHTTP serves HTTP
 func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	protocol := "http"
-	setHeaders(writer, s.getAddress(), protocol, s.getScriptHash())
+	protocol := "https"
+	setHeaders(writer, s.getOptions().Address, protocol, s.getScriptHash())
 	uri := request.RequestURI
 	if jsFile.MatchString(uri) || tsFile.MatchString(uri) {
 		writer.Header().Set("Content-Type", "application/javascript")
 	}
 	s.getFs().ServeHTTP(writer, request)
+}
+
+// ServeHTTP serves HTTP
+func (i *insecureServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	protocol := "http"
+	addr := "localhost"
+	scriptHash := "'none'"
+	if i != nil {
+		addr = i.Address
+		scriptHash = i.scriptHash
+	}
+	setHeaders(writer, addr, protocol, scriptHash)
+	handlerFunc := http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		http.Redirect(res, req, "https://"+req.Host+req.URL.Path, http.StatusMovedPermanently)
+	})
+	handlerFunc.ServeHTTP(writer, request)
 }
 
 func (s *HTTPServer) readScriptHash() (scriptHash string, err error) {
@@ -154,20 +172,6 @@ func (s *HTTPServer) getLayer() Layer {
 	return s.layer
 }
 
-func (s *HTTPServer) getAddress() string {
-	if s == nil {
-		return ""
-	}
-	return s.Address
-}
-
-func (s *HTTPServer) getPort() string {
-	if s == nil {
-		return ""
-	}
-	return s.Port
-}
-
 func (s *HTTPServer) getFileSystem() vfs.FileSystem {
 	if s == nil {
 		return vfs.OS(".")
@@ -180,4 +184,11 @@ func (s *HTTPServer) getScriptHash() string {
 		return ""
 	}
 	return s.scriptHash
+}
+
+func (s *HTTPServer) getOptions() config.Options {
+	if s == nil {
+		return config.DefaultOptions()
+	}
+	return s.Options
 }

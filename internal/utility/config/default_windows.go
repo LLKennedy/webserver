@@ -1,6 +1,11 @@
 package config
 
+import (
+	"fmt"
+	"os"
+)
+
 var (
-	defaultKeyFile  = "%PROGRAMDATA%/pki/server.key"
-	defaultCertFile = "%PROGRAMDATA%/pki/server.crt"
+	defaultKeyFile  = fmt.Sprintf("%s/pki/server.key", os.Getenv("PROGRAMDATA"))
+	defaultCertFile = fmt.Sprintf("%s/pki/server.crt", os.Getenv("PROGRAMDATA"))
 )
