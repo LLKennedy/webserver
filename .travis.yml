@@ -11,8 +11,7 @@ jobs:
       language: go
       go: 1.12.x
       script: 
-        - export GO111MODULE=on
-        - go build .
+        - env GO111MODULE=on go build .
     - name: lint
       stage: test
       language: go
@@ -21,17 +20,15 @@ jobs:
         - export GO111MODULE=off
         - go get golang.org/x/lint/golint
       script: 
-        - export GO111MODULE=on
         - golint --set_exit_status ./...
-        - if [[ $(gofmt -s -l .) ]]; then gofmt -s -l .; exit 1; fi 
-        - if [[ $(goimports -l .) ]]; then goimports -l .; exit 1; fi
+        - if [[ $(env GO111MODULE=on gofmt -s -l .) ]]; then env GO111MODULE=on gofmt -s -l .; exit 1; fi 
+        - if [[ $(env GO111MODULE=on goimports -l .) ]]; then env GO111MODULE=on goimports -l .; exit 1; fi
     - name: test
       stage: test
       language: go
       go: 1.12.x
       script: 
-        - export GO111MODULE=on
-        - go test ./... -race
+        - env GO111MODULE=on go test ./... -race
     - name: coverage
       stage: test
       language: go
@@ -42,10 +39,9 @@ jobs:
         - chmod +x ./cc-test-reporter
         - ./cc-test-reporter before-build
       script: 
-        - export GO111MODULE=on
         - mandatory_coverage="90"
-        - go test ./... -coverprofile=c.out
-        - go tool cover -func=c.out > coverage.txt
+        - env GO111MODULE=on go test ./... -coverprofile=c.out
+        - env GO111MODULE=on go tool cover -func=c.out > coverage.txt
         - coverage_percent=$(grep -Eo "total:.*\(statements\).*[0-9.]+" coverage.txt | grep -Eo "[0-9]+\.[0-9]+" | bc) # I am not good at bash
         - if [ $(bc -l <<< "$coverage_percent < $mandatory_coverage") -eq 1 ]; then echo "Coverage percentage was ${coverage_percent}%, must be at least ${mandatory_coverage}%!"; exit 1; else echo "Coverage percentage was ${coverage_percent}%, mandatory coverage is ${mandatory_coverage}%"; fi
       after_script:
@@ -56,5 +52,4 @@ jobs:
       language: go
       go: 1.12.x
       script: 
-        - export GO111MODULE=on
         - exit 0 # write deployment code
