@@ -1,3 +1,11 @@
+github.com/LLKennedy/goconfig v1.0.0-alpha.1 h1:sSl+0/jSeaMXR60JNYZUB5nkK1t3UJ9c0BXkq6R/nLM=
+github.com/LLKennedy/goconfig v1.0.0-alpha.1/go.mod h1:ukybpML6oVUkswQd6AWzualcc7AZ0NyzB3IZtiWGBqQ=
+github.com/LLKennedy/goconfig v1.0.0-alpha.2 h1:El2oQDH4whZNFPyDGD489pzVO9S3Oo/t64tQ23btCrw=
+github.com/LLKennedy/goconfig v1.0.0-alpha.2/go.mod h1:ukybpML6oVUkswQd6AWzualcc7AZ0NyzB3IZtiWGBqQ=
+github.com/LLKennedy/goconfig v1.0.0-alpha.3 h1:tcLOvb2ikwZV2P7xs31Msv5/vZXBs3RT6wRW8CsjSCc=
+github.com/LLKennedy/goconfig v1.0.0-alpha.3/go.mod h1:ukybpML6oVUkswQd6AWzualcc7AZ0NyzB3IZtiWGBqQ=
+github.com/LLKennedy/goconfig v1.0.0-alpha.4 h1:qJyhVJ0ySN1kYbCKVjxAfTwUmS8uj6v3qjEKtOVFRMw=
+github.com/LLKennedy/goconfig v1.0.0-alpha.4/go.mod h1:ukybpML6oVUkswQd6AWzualcc7AZ0NyzB3IZtiWGBqQ=
 github.com/LLKennedy/webserver v0.0.0-20190722104802-3a27267ccdcf h1:KmX2Cumdg1GuBvkeixR05VNHmvglvcsCVUgJj69Kww4=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -14,3 +22,5 @@ golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5h
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/tools v0.0.0-20190726230722-1bd56024c620 h1:R1KpHac1wFOWMlo5t+90wDLZ3e6dtEDcwvHB+qA1etk=
 golang.org/x/tools v0.0.0-20190726230722-1bd56024c620/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
+golang.org/x/tools v0.0.0-20190802220118-1d1727260058 h1:OsDcfiJHbqcv+S4eovUaiPY2ILzR76hXrjILS4sV4Wg=
+golang.org/x/tools v0.0.0-20190802220118-1d1727260058/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=

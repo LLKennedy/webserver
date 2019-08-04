@@ -4,15 +4,17 @@ stages:
   - name: deploy
     if: branch = master
 
+env:
+  - GO111MODULE=on
+
 jobs:
   include:
     - name: compile
       stage: compile
       language: go
       go: 1.12.x
-      before_script:
-        - export GO111MODULE=on
-      script: go build .
+      script: 
+        - go build .
     - name: lint
       stage: test
       language: go
@@ -20,8 +22,8 @@ jobs:
       before_script:
         - export GO111MODULE=off
         - go get golang.org/x/lint/golint
-        - export GO111MODULE=on
       script: 
+        - export GO111MODULE=on
         - golint --set_exit_status ./...
         - if [[ $(gofmt -s -l .) ]]; then gofmt -s -l .; exit 1; fi 
         - if [[ $(goimports -l .) ]]; then goimports -l .; exit 1; fi
@@ -29,9 +31,8 @@ jobs:
       stage: test
       language: go
       go: 1.12.x
-      before_script:
-        - export GO111MODULE=on
       script: 
+        - export GO111MODULE=on
         - go test ./... -race
     - name: coverage
       stage: test
@@ -42,8 +43,8 @@ jobs:
         - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
         - chmod +x ./cc-test-reporter
         - ./cc-test-reporter before-build
-        - export GO111MODULE=on
       script: 
+        - export GO111MODULE=on
         - mandatory_coverage="90"
         - go test ./... -coverprofile=c.out
         - go tool cover -func=c.out > coverage.txt
@@ -56,6 +57,5 @@ jobs:
       stage: deploy
       language: go
       go: 1.12.x
-      before_script:
-        - export GO111MODULE=on
-      script: exit 0 # write deployment code
+      script: 
+        - exit 0 # write deployment code
