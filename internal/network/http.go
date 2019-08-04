@@ -14,7 +14,7 @@ type HTTP struct {
 // Shutdown shuts down a server
 func (h *HTTP) Shutdown(ctx context.Context) error {
 	if h == nil {
-		return fmt.Errorf("cannot listen on nil server")
+		return fmt.Errorf("cannot shutdown nil server")
 	}
 	return h.server.Shutdown(ctx)
 }

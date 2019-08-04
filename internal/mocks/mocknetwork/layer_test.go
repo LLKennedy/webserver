@@ -1,6 +1,7 @@
 package mocknetwork
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -17,6 +18,14 @@ func (m *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	args := m.Called(r)
 	writeFunc := args.Get(0).(func(http.ResponseWriter))
 	writeFunc(w)
+}
+
+func TestShutdown(t *testing.T) {
+	ctx := context.Background()
+	m := new(Layer)
+	m.On("Shutdown", ctx).Return(nil)
+	err := m.Shutdown(ctx)
+	assert.NoError(t, err)
 }
 
 func TestListenAndServe(t *testing.T) {

@@ -105,7 +105,7 @@ func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 // ServeHTTP serves HTTP
 func (i *insecureServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	protocol := "http"
-	addr := "localhost"
+	addr := config.DefaultOptions().Address
 	scriptHash := "'none'"
 	if i != nil {
 		addr = i.Address

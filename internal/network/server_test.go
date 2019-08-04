@@ -22,21 +22,40 @@ import (
 )
 
 func TestNewHTTPServer(t *testing.T) {
-	mfs := fs.New()
-	mfs.On("Open", goconfig.DefaultConfigLocation("webserver")).Return(fs.NewFile("", []byte("{}"), nil, nil, true), nil)
-	secure := &HTTP{}
-	insecure := &HTTP{}
-	logger := mocklog.New()
-	s := NewHTTPServer(logger, mfs, secure, insecure)
-	assert.Equal(t, &HTTPServer{
-		Options:    config.DefaultOptions(),
-		logger:     logger,
-		secure:     secure,
-		insecure:   insecure,
-		fileSystem: mfs,
-		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
-	}, s)
-	assert.Equal(t, "", logger.GetContents())
+	t.Run("no error", func(t *testing.T) {
+		mfs := fs.New()
+		mfs.On("Open", goconfig.DefaultConfigLocation("webserver")).Return(fs.NewFile("", []byte("{}"), nil, nil, true), nil)
+		secure := &HTTP{}
+		insecure := &HTTP{}
+		logger := mocklog.New()
+		s := NewHTTPServer(logger, mfs, secure, insecure)
+		assert.Equal(t, &HTTPServer{
+			Options:    config.DefaultOptions(),
+			logger:     logger,
+			secure:     secure,
+			insecure:   insecure,
+			fileSystem: mfs,
+			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
+		}, s)
+		assert.Equal(t, "", logger.GetContents())
+	})
+	t.Run("error getting config", func(t *testing.T) {
+		mfs := fs.New()
+		mfs.On("Open", goconfig.DefaultConfigLocation("webserver")).Return(fs.NewFile("", []byte("{}"), nil, nil, true), fmt.Errorf("cannot open file"))
+		secure := &HTTP{}
+		insecure := &HTTP{}
+		logger := mocklog.New()
+		s := NewHTTPServer(logger, mfs, secure, insecure)
+		assert.Equal(t, &HTTPServer{
+			Options:    config.DefaultOptions(),
+			logger:     logger,
+			secure:     secure,
+			insecure:   insecure,
+			fileSystem: mfs,
+			fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(mfs, "build"))),
+		}, s)
+		assert.Equal(t, "problem getting config: cannot open file", logger.GetContents())
+	})
 }
 
 func catchPanic(t *testing.T) {
@@ -113,6 +132,67 @@ func TestStart(t *testing.T) {
 	})
 }
 
+func TestServeHTTPSecure(t *testing.T) {
+	t.Run("root file", func(t *testing.T) {
+		defer catchPanic(t)
+		rootFile := fs.NewFile("/", []byte(""), nil, nil, true)
+		rootFile.On("IsDir").Return(false)
+		mfs := fs.New(rootFile)
+		mfs.On("Stat", "/").Return(rootFile, nil)
+		s := &HTTPServer{
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
+			logger:     new(mockLogger),
+		}
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "/"}, Host: "", RemoteAddr: ""})
+		mfs.AssertExpectations(t)
+		rootFile.AssertExpectations(t)
+	})
+	t.Run("js file", func(t *testing.T) {
+		defer catchPanic(t)
+		scriptFile := fs.NewFile("/something.js", []byte(""), nil, nil, true)
+		scriptFile.On("IsDir").Return(false)
+		scriptFile.On("Name").Return("something.js")
+		scriptFile.On("ModTime").Return(time.Now())
+		scriptFile.On("Size").Return(int64(len("")))
+		scriptFile.On("IsDir").Return(false)
+		mfs := fs.New(scriptFile)
+		mfs.On("Stat", "/something.js").Return(scriptFile, nil)
+		s := &HTTPServer{
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
+			logger:     new(mockLogger),
+		}
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{RequestURI: "something.js", URL: &url.URL{Path: "/something.js"}, Host: "", RemoteAddr: ""})
+		mfs.AssertExpectations(t)
+		scriptFile.AssertExpectations(t)
+	})
+	t.Run("ts file", func(t *testing.T) {
+		defer catchPanic(t)
+		scriptFile := fs.NewFile("/something.ts", []byte(""), nil, nil, true)
+		scriptFile.On("IsDir").Return(false)
+		scriptFile.On("Name").Return("something.ts")
+		scriptFile.On("ModTime").Return(time.Now())
+		scriptFile.On("Size").Return(int64(len("")))
+		scriptFile.On("IsDir").Return(false)
+		mfs := fs.New(scriptFile)
+		mfs.On("Stat", "/something.ts").Return(scriptFile, nil)
+		s := &HTTPServer{
+			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
+			logger:     new(mockLogger),
+		}
+		s.ServeHTTP(new(mockResponseWriter), &http.Request{RequestURI: "something.ts", URL: &url.URL{Path: "/something.ts"}, Host: "", RemoteAddr: ""})
+		mfs.AssertExpectations(t)
+		scriptFile.AssertExpectations(t)
+	})
+}
+
+func TestServeHTTPInsecure(t *testing.T) {
+	i := &insecureServer{}
+	testFunc := func() {
+		i.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{}})
+	}
+	assert.NotPanics(t, testFunc)
+}
+
 func TestReadScriptHash(t *testing.T) {
 	t.Run("fail on file open", func(t *testing.T) {
 		mfs := fs.New(fs.NewFile("build/index.html", nil, fmt.Errorf("some error"), nil, false))
@@ -179,6 +259,25 @@ func TestGetFs(t *testing.T) {
 		}
 		ffs := s.getFs()
 		assert.Equal(t, mfs, ffs)
+	})
+}
+
+func TestGetOptions(t *testing.T) {
+	t.Run("nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		var s *HTTPServer
+		o := s.getOptions()
+		assert.Equal(t, config.DefaultOptions(), o)
+	})
+	t.Run("non-nil server", func(t *testing.T) {
+		defer catchPanic(t)
+		opts := config.DefaultOptions()
+		opts.Port = 1000
+		s := &HTTPServer{
+			Options: opts,
+		}
+		o := s.getOptions()
+		assert.Equal(t, opts, o)
 	})
 }
 
@@ -303,57 +402,4 @@ func (m *mockLogger) Printf(format string, v ...interface{}) {
 func (m *mockLogger) Fatalf(format string, v ...interface{}) {
 	m.fatalCount++
 	m.buf.WriteString(fmt.Sprintf(format, v...))
-}
-
-func TestServeHTTP(t *testing.T) {
-	t.Run("root file", func(t *testing.T) {
-		defer catchPanic(t)
-		rootFile := fs.NewFile("/", []byte(""), nil, nil, true)
-		rootFile.On("IsDir").Return(false)
-		mfs := fs.New(rootFile)
-		mfs.On("Stat", "/").Return(rootFile, nil)
-		s := &HTTPServer{
-			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
-			logger:     new(mockLogger),
-		}
-		s.ServeHTTP(new(mockResponseWriter), &http.Request{URL: &url.URL{Path: "/"}, Host: "", RemoteAddr: ""})
-		mfs.AssertExpectations(t)
-		rootFile.AssertExpectations(t)
-	})
-	t.Run("js file", func(t *testing.T) {
-		defer catchPanic(t)
-		scriptFile := fs.NewFile("/something.js", []byte(""), nil, nil, true)
-		scriptFile.On("IsDir").Return(false)
-		scriptFile.On("Name").Return("something.js")
-		scriptFile.On("ModTime").Return(time.Now())
-		scriptFile.On("Size").Return(int64(len("")))
-		scriptFile.On("IsDir").Return(false)
-		mfs := fs.New(scriptFile)
-		mfs.On("Stat", "/something.js").Return(scriptFile, nil)
-		s := &HTTPServer{
-			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
-			logger:     new(mockLogger),
-		}
-		s.ServeHTTP(new(mockResponseWriter), &http.Request{RequestURI: "something.js", URL: &url.URL{Path: "/something.js"}, Host: "", RemoteAddr: ""})
-		mfs.AssertExpectations(t)
-		scriptFile.AssertExpectations(t)
-	})
-	t.Run("ts file", func(t *testing.T) {
-		defer catchPanic(t)
-		scriptFile := fs.NewFile("/something.ts", []byte(""), nil, nil, true)
-		scriptFile.On("IsDir").Return(false)
-		scriptFile.On("Name").Return("something.ts")
-		scriptFile.On("ModTime").Return(time.Now())
-		scriptFile.On("Size").Return(int64(len("")))
-		scriptFile.On("IsDir").Return(false)
-		mfs := fs.New(scriptFile)
-		mfs.On("Stat", "/something.ts").Return(scriptFile, nil)
-		s := &HTTPServer{
-			fileServer: http.FileServer(mocknetwork.NewDir(mfs)),
-			logger:     new(mockLogger),
-		}
-		s.ServeHTTP(new(mockResponseWriter), &http.Request{RequestURI: "something.ts", URL: &url.URL{Path: "/something.ts"}, Host: "", RemoteAddr: ""})
-		mfs.AssertExpectations(t)
-		scriptFile.AssertExpectations(t)
-	})
 }

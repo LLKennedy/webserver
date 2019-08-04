@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -20,26 +21,59 @@ func (m *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeFunc(w)
 }
 
+func TestShutdown(t *testing.T) {
+	t.Run("nil layer", func(t *testing.T) {
+		var layer *HTTP
+		err := layer.Shutdown(nil)
+		assert.EqualError(t, err, "cannot shutdown nil server")
+	})
+	t.Run("non-nil layer", func(t *testing.T) {
+		ctx := context.Background()
+		layer := &HTTP{}
+		err := layer.Shutdown(ctx)
+		assert.NoError(t, err)
+	})
+}
+
 func TestListenAndServe(t *testing.T) {
-	handler := new(mockHandler)
-	addr := "localhost"
-	layer := HTTP{}
-	err := layer.ListenAndServe(addr, handler)
-	assert.EqualError(t, err, "listen tcp: address localhost: missing port in address")
+	t.Run("nil layer", func(t *testing.T) {
+		var layer *HTTP
+		err := layer.ListenAndServe("", nil)
+		assert.EqualError(t, err, "cannot listen on nil server")
+	})
+	t.Run("non-nil layer", func(t *testing.T) {
+		handler := new(mockHandler)
+		addr := "localhost"
+		layer := &HTTP{}
+		err := layer.ListenAndServe(addr, handler)
+		assert.EqualError(t, err, "listen tcp: address localhost: missing port in address")
+	})
 }
 
 func TestListenAndServeTLS(t *testing.T) {
-	handler := new(mockHandler)
-	addr := "localhost"
-	layer := HTTP{}
-	err := layer.ListenAndServeTLS(addr, "", "", handler)
-	assert.EqualError(t, err, "listen tcp: address localhost: missing port in address")
+	t.Run("nil layer", func(t *testing.T) {
+		var layer *HTTP
+		err := layer.ListenAndServeTLS("", "", "", nil)
+		assert.EqualError(t, err, "cannot listen on nil server")
+	})
+	t.Run("non-nil layer", func(t *testing.T) {
+		handler := new(mockHandler)
+		addr := "localhost"
+		layer := &HTTP{}
+		err := layer.ListenAndServeTLS(addr, "", "", handler)
+		assert.EqualError(t, err, "listen tcp: address localhost: missing port in address")
+	})
 }
 
 func TestFileServer(t *testing.T) {
-	mfs := vfs.NameSpace{}
-	vdir := mocknetwork.NewDir(mfs)
-	layer := HTTP{}
-	handler := layer.FileServer(vdir)
-	assert.Equal(t, http.FileServer(vdir), handler)
+	t.Run("nil layer", func(t *testing.T) {
+
+	})
+	t.Run("non-nil layer", func(t *testing.T) {
+		mfs := vfs.NameSpace{}
+		vdir := mocknetwork.NewDir(mfs)
+		layer := &HTTP{}
+		handler := layer.FileServer(vdir)
+		assert.Equal(t, http.FileServer(vdir), handler)
+	})
 }
