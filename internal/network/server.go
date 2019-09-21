@@ -52,7 +52,7 @@ func NewHTTPServer(logger logs.Logger, fileSystem vfs.FileSystem, secure, insecu
 		secure:     secure,
 		insecure:   insecure,
 		fileSystem: fileSystem,
-		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, "build"))),
+		fileServer: http.FileServer(mocknetwork.NewDir(filemask.Wrap(fileSystem, options.GetStaticContent()))),
 	}
 	if err != nil {
 		server.getLogger().Printf("problem getting config: %v", err)
@@ -81,9 +81,9 @@ func (s *HTTPServer) Start() (err error) {
 		s.getLogger().Printf("%v\n", err)
 		return err
 	}
-	s.insecureServer = &insecureServer{Address: s.getOptions().Address, scriptHash: s.getScriptHash()}
-	go s.getInsecure().ListenAndServe(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().InsecurePort), s.insecureServer)
-	err = s.getSecure().ListenAndServeTLS(fmt.Sprintf("%s:%d", s.getOptions().Address, s.getOptions().Port), s.getOptions().CertFile, s.getOptions().KeyFile, s)
+	s.insecureServer = &insecureServer{Address: s.getOptions().GetAddress(), scriptHash: s.getScriptHash()}
+	go s.getInsecure().ListenAndServe(fmt.Sprintf("%s:%d", s.getOptions().GetAddress(), s.getOptions().GetInsecurePort()), s.insecureServer)
+	err = s.getSecure().ListenAndServeTLS(fmt.Sprintf("%s:%d", s.getOptions().GetAddress(), s.getOptions().GetPort()), s.getOptions().GetCertFile(), s.getOptions().GetKeyFile(), s)
 	if err != nil {
 		err = fmt.Errorf("http server closed unexpectedly: %v", err)
 		s.getLogger().Printf("%v\n", err)
@@ -94,7 +94,7 @@ func (s *HTTPServer) Start() (err error) {
 // ServeHTTP serves HTTP
 func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	protocol := "https"
-	setHeaders(writer, s.getOptions().Address, protocol, s.getScriptHash())
+	setHeaders(writer, s.getOptions().GetAddress(), protocol, s.getScriptHash())
 	uri := request.RequestURI
 	if jsFile.MatchString(uri) || tsFile.MatchString(uri) {
 		writer.Header().Set("Content-Type", "application/javascript")
@@ -105,7 +105,7 @@ func (s *HTTPServer) ServeHTTP(writer http.ResponseWriter, request *http.Request
 // ServeHTTP serves HTTP
 func (i *insecureServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	protocol := "http"
-	addr := config.DefaultOptions().Address
+	addr := config.DefaultOptions().GetAddress()
 	scriptHash := "'none'"
 	if i != nil {
 		addr = i.Address
@@ -120,7 +120,7 @@ func (i *insecureServer) ServeHTTP(writer http.ResponseWriter, request *http.Req
 
 func (s *HTTPServer) readScriptHash() (scriptHash string, err error) {
 	hash := regexp.MustCompile(`'sha256-[a-zA-Z0-9+/=]{44}'`)
-	indexFile, err := s.getFileSystem().Open("build/index.html")
+	indexFile, err := s.getFileSystem().Open(fmt.Sprintf("%s/index.html", s.Options.GetStaticContent()))
 	if err != nil {
 		err = fmt.Errorf("could not open index file: %v", err)
 		s.getLogger().Printf("%v\n", err)
